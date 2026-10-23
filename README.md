@@ -64,6 +64,109 @@ RouteMind se desarrollará utilizando tecnologías modernas para aplicaciones we
 | Docker y Docker Compose | Contenerización y ejecución coordinada de los servicios. |
 | Git y GitHub | Control de versiones y documentación del proyecto. |
 
+ón de las rutas a partir de eventos.
+
+Indicadores logísticos: evaluar distancias estimadas, cantidad de paradas y tiempos previstos de recorrido.
+
+¿Cómo funcionará el módulo de rutas?
+
+El usuario registra los pedidos y sus direcciones de entrega.
+
+El sistema obtiene o valida las coordenadas geográficas de las direcciones.
+
+Los pedidos se visualizan en el mapa y pueden organizarse por zona, prioridad u otros criterios.
+
+El usuario selecciona los pedidos que desea incluir en una ruta y asigna un vehículo.
+
+El sistema calcula una propuesta de recorrido y orden de visitas mediante un servicio de enrutamiento.
+
+La ruta se muestra en el mapa para que el usuario pueda revisarla y modificarla.
+
+Una vez confirmada, la planificación queda asociada a los pedidos y al vehículo correspondiente.
+
+La optimización de rutas podrá evolucionar desde una planificación manual asistida por mapas hasta algoritmos que consideren distancias, tiempos de viaje, capacidad de los vehículos, ventanas horarias y prioridades de entrega.
+
+Tecnologías geográficas por evaluar
+
+Leaflet: biblioteca para construir mapas interactivos en React.
+
+OpenStreetMap: fuente de datos cartográficos.
+
+OSRM o GraphHopper: alternativas para calcular recorridos por carretera.
+
+Geocodificación: conversión de direcciones en coordenadas geográficas para situar las entregas en el mapa.
+
+Estas tecnologías son opciones para la implementación; la selección final dependerá de los requisitos, los límites de uso y las condiciones de cada servicio.
+
+🔄 Integración del mapa con Apache Kafka
+
+Apache Kafka podrá conectar los cambios operativos con los componentes responsables de mantener actualizada la información logística.
+
+Por ejemplo, cuando un pedido se cree, cambie de estado o se asigne a un vehículo, el backend podrá publicar un evento para que otros componentes procesen el cambio.
+
+Entre los eventos propuestos se encuentran:
+
+Evento
+
+Uso previsto
+
+pedido.creado
+
+Incorporar el pedido al conjunto de entregas pendientes de planificación.
+
+pedido.estado_cambiado
+
+Actualizar el estado operativo de una entrega.
+
+vehiculo.asignado
+
+Comunicar la asignación de un vehículo a un pedido o ruta.
+
+ruta.creada
+
+Informar que se ha registrado una nueva planificación.
+
+ruta.actualizada
+
+Comunicar cambios en el orden de las paradas o el recorrido.
+
+Un consumidor de eventos podrá actualizar proyecciones de datos, generar notificaciones o identificar cambios que requieran revisar una planificación.
+
+Kafka no calculará por sí mismo las rutas ni dibujará los mapas: esas tareas corresponderán al módulo de planificación, al frontend y al servicio de enrutamiento seleccionado.
+
+Arquitectura logística propuesta
+
+Pedidos + Vehículos
+        │
+        ▼
+   NestJS API ───────────► PostgreSQL
+        │
+        ▼
+  Apache Kafka
+        │
+        ▼
+Consumidores de eventos
+        │
+        ▼
+Módulo de planificación
+        │
+        ▼
+Servicio de enrutamiento
+(OSRM / GraphHopper)
+        │
+        ▼
+Mapa interactivo en React
+
+Esta arquitectura es una propuesta de evolución. La implementación deberá definir cómo se guardan las rutas, cómo se confirman los cambios y cómo se mantiene la coherencia entre la planificación y los pedidos.
+
+🎯 Objetivo final del módulo geográfico
+
+El objetivo es que RouteMind evolucione hacia una plataforma capaz de centralizar pedidos, vehículos y rutas en un mismo entorno, ofreciendo herramientas para visualizar entregas, organizar paradas, planificar recorridos y responder a cambios operativos.
+
+Con esta funcionalidad, el proyecto combinará desarrollo Full Stack, bases de datos relacionales, sistemas de información geográfica, servicios de enrutamiento y, progresivamente, procesamiento de eventos con Apache Kafka.
+
+
+
 ## 📨 Integración de Apache Kafka
 
 Una de las principales metas de evolución de RouteMind es incorporar **Apache Kafka** para implementar una arquitectura orientada a eventos (*Event-Driven Architecture*).
