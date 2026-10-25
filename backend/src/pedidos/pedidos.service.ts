@@ -136,4 +136,167 @@ async asignar(
   return pedido;
 }
 
+
+async planificarRuta(vehiculoId: number) {
+    const vehiculo = await this.vehiculoModel.findByPk(vehiculoId);
+
+    if (!vehiculo) {
+      throw new NotFoundException(
+        `No existe un vehículo con el ID ${vehiculoId}`,
+      );
+    }
+
+    if (vehiculo.estado === 'MANTENIMIENTO') {
+      throw new ConflictException(
+        'No se puede planificar una ruta para un vehículo en mantenimiento',
+      );
+    }
+
+    const pedidos = await this.pedidoModel.findAll({
+      where: { vehiculoId },
+    });
+
+    const restantes = pedidos.filter(
+      (pedido) =>
+        pedido.estado === 'ASIGNADO' ||
+        pedido.estado === 'EN_CAMINO',
+    );
+
+    const origen =
+      vehiculo.latitudActual != null &&
+      vehiculo.longitudActual != null
+        ? {
+            latitud: Number(vehiculo.latitudActual),
+            longitud: Number(vehiculo.longitudActual),
+          }
+        : null;
+
+    const prioridad: Record<string, number> = {
+      ALTA: 3,
+      MEDIA: 2,
+      BAJA: 1,
+    };
+
+    let puntoActual = origen;
+    let distanciaTotalKm = 0;
+    const paradas: Array<{
+      orden: number;
+      pedidoId: number;
+      destinatario: string;
+      direccion: string;
+      latitud: number;
+      longitud: number;
+      prioridad: string;
+      estado: string;
+      distanciaDesdeAnteriorKm: number | null;
+    }> = [];
+
+    while (restantes.length > 0) {
+      let indiceElegido = 0;
+
+      if (puntoActual) {
+        let menorDistancia = Infinity;
+
+        for (let i = 0; i < restantes.length; i++) {
+          const distancia = this.distanciaKm(
+            puntoActual.latitud,
+            puntoActual.longitud,
+            Number(restantes[i].latitud),
+            Number(restantes[i].longitud),
+          );
+
+          if (distancia < menorDistancia) {
+            menorDistancia = distancia;
+            indiceElegido = i;
+          }
+        }
+      } else {
+        // Sin coordenadas del vehículo, comenzar por prioridad.
+        restantes.sort(
+          (a, b) =>
+            prioridad[b.prioridad] - prioridad[a.prioridad] ||
+            a.id - b.id,
+        );
+      }
+
+      const [pedido] = restantes.splice(indiceElegido, 1);
+
+      const latitud = Number(pedido.latitud);
+      const longitud = Number(pedido.longitud);
+
+      const distancia = puntoActual
+        ? this.distanciaKm(
+            puntoActual.latitud,
+            puntoActual.longitud,
+            latitud,
+            longitud,
+          )
+        : null;
+
+      if (distancia !== null) {
+        distanciaTotalKm += distancia;
+      }
+
+      paradas.push({
+        orden: paradas.length + 1,
+        pedidoId: pedido.id,
+        destinatario: pedido.destinatario,
+        direccion: pedido.direccion,
+        latitud,
+        longitud,
+        prioridad: pedido.prioridad,
+        estado: pedido.estado,
+        distanciaDesdeAnteriorKm:
+          distancia === null ? null : Number(distancia.toFixed(2)),
+      });
+
+      puntoActual = { latitud, longitud };
+    }
+
+    return {
+      vehiculo: {
+        id: vehiculo.id,
+        codigo: vehiculo.codigo,
+        conductor: vehiculo.conductor,
+        estado: vehiculo.estado,
+      },
+      origen,
+      algoritmo: 'vecino_mas_cercano',
+      tipoDistancia: 'linea_recta',
+      totalParadas: paradas.length,
+      distanciaTotalKm: Number(distanciaTotalKm.toFixed(2)),
+      paradas,
+      nota: origen
+        ? 'Distancia aproximada en línea recta desde el vehículo y entre las paradas.'
+        : 'El vehículo no tiene coordenadas actuales. La ruta comienza por el pedido de mayor prioridad; la distancia total no incluye el trayecto desde el vehículo.',
+    };
+  }
+
+  private distanciaKm(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number,
+  ): number {
+    const radioTierraKm = 6371;
+    const radianes = (grados: number) => (grados * Math.PI) / 180;
+
+    const diferenciaLatitud = radianes(lat2 - lat1);
+    const diferenciaLongitud = radianes(lon2 - lon1);
+
+    const a =
+      Math.sin(diferenciaLatitud / 2) ** 2 +
+      Math.cos(radianes(lat1)) *
+        Math.cos(radianes(lat2)) *
+        Math.sin(diferenciaLongitud / 2) ** 2;
+
+    return (
+      2 *
+      radioTierraKm *
+      Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+    );
+  }
+
+
+
 }
