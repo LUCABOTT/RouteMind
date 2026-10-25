@@ -54,6 +54,13 @@ eliminar(
   return this.pedidosService.eliminar(id);
 }
 
+@Get('vehiculo/:vehiculoId/planificar')
+  planificarRuta(
+    @Param('vehiculoId', ParseIntPipe) vehiculoId: number,
+  ) {
+    return this.pedidosService.planificarRuta(vehiculoId);
+  }
+
 
 @Patch(':id/asignar')
 asignar(
