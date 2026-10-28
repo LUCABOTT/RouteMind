@@ -8,7 +8,16 @@ import {
   AutoIncrement,
   CreatedAt,
   UpdatedAt,
+  ForeignKey,
+  BelongsTo,
 } from 'sequelize-typescript';
+import { Conductor } from './conductor.model';
+
+export enum EstadoVehiculo {
+  DISPONIBLE = 'DISPONIBLE',
+  EN_RUTA = 'EN_RUTA',
+  MANTENIMIENTO = 'MANTENIMIENTO',
+}
 
 @Table({
   tableName: 'vehiculos',
@@ -28,11 +37,16 @@ export class Vehiculo extends Model {
   })
   declare codigo: string;
 
+  @ForeignKey(() => Conductor)
   @Column({
-    type: DataType.STRING(100),
-    allowNull: false,
+    type: DataType.INTEGER,
+    field: 'conductor_id',
+    allowNull: true,
   })
-  declare conductor: string;
+  declare conductorId: number | null;
+
+  @BelongsTo(() => Conductor)
+  declare conductorInfo?: Conductor;
 
   @Column({
     type: DataType.INTEGER,
@@ -41,14 +55,11 @@ export class Vehiculo extends Model {
   declare capacidad: number;
 
   @Column({
-    type: DataType.ENUM('DISPONIBLE', 'EN_RUTA', 'MANTENIMIENTO'),
+    type: DataType.ENUM(...Object.values(EstadoVehiculo)),
     allowNull: false,
-    defaultValue: 'DISPONIBLE',
+    defaultValue: EstadoVehiculo.DISPONIBLE,
   })
-  declare estado:
-    | 'DISPONIBLE'
-    | 'EN_RUTA'
-    | 'MANTENIMIENTO';
+  declare estado: EstadoVehiculo;
 
   @Column({
     type: DataType.DOUBLE,
@@ -61,6 +72,20 @@ export class Vehiculo extends Model {
     allowNull: true,
   })
   declare longitudActual: number | null;
+
+  @Column({
+    type: DataType.DATE,
+    field: 'gps_updated_at',
+    allowNull: true,
+  })
+  declare gpsUpdatedAt: Date | null;
+
+  @Column({
+    type: DataType.DOUBLE,
+    field: 'gps_accuracy_m',
+    allowNull: true,
+  })
+  declare gpsAccuracyM: number | null;
 
   @CreatedAt
   declare createdAt: Date;

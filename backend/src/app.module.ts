@@ -1,12 +1,18 @@
 import 'dotenv/config';
 
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { SequelizeModule } from '@nestjs/sequelize';
+import { AuthModule } from './auth/auth.module';
+import { AuthGuard } from './auth/guards/auth.guard';
+import { RolesGuard } from './auth/guards/roles.guard';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { HealthModule } from './health/health.module';
 import { PedidosModule } from './pedidos/pedidos.module';
 import { VehiculosModule } from './vehiculos/vehiculos.module';
+import { RecorridosModule } from './recorridos/recorridos.module';
+import { SeguimientoModule } from './seguimiento/seguimiento.module';
 
 @Module({
   imports: [
@@ -22,10 +28,17 @@ import { VehiculosModule } from './vehiculos/vehiculos.module';
       logging: false,
     }),
     HealthModule,
+    AuthModule,
     PedidosModule,
     VehiculosModule,
+    RecorridosModule,
+    SeguimientoModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    { provide: APP_GUARD, useExisting: AuthGuard },
+    { provide: APP_GUARD, useExisting: RolesGuard },
+  ],
 })
 export class AppModule {}

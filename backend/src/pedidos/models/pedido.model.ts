@@ -1,4 +1,5 @@
 import { Vehiculo } from '../../vehiculos/models/vehiculo.model';
+import { Recorrido } from '../../recorridos/models/recorrido.model';
 import {
   Table,
   Column,
@@ -29,6 +30,17 @@ export class Pedido extends Model {
 
   @BelongsTo(() => Vehiculo)
   declare vehiculo?: Vehiculo;
+
+  @ForeignKey(() => Recorrido)
+@Column({
+  type: DataType.INTEGER,
+  field: 'recorrido_id',
+  allowNull: true,
+})
+declare recorridoId: number | null;
+
+@BelongsTo(() => Recorrido)
+declare recorrido?: Recorrido;
 
   @PrimaryKey
   @AutoIncrement

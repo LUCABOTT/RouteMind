@@ -25,6 +25,98 @@
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
+## RouteMind authentication and roles
+
+The API uses an HTTP-only `routeMindToken` cookie. Copy `.env.example` to
+`.env` and configure the database, `FRONTEND_ORIGIN`, and a `JWT_SECRET` with
+at least 32 characters. To generate a secret locally, run:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Apply the database migrations from this directory before starting the API:
+
+```bash
+npx sequelize-cli db:migrate
+npm run start:dev
+```
+
+Set both `SEED_SUPERADMIN_EMAIL` and `SEED_SUPERADMIN_PASSWORD` in `.env` to
+create the initial `SUPERADMIN` account when the API starts for the first time.
+The password must have at least 12 characters. Do not commit `.env`. Public
+registration always creates a `PLANIFICADOR`; only the `SUPERADMIN` can change
+user roles, activate/deactivate users, or delete users.
+
+`FRONTEND_ORIGIN` accepts a comma-separated allowlist. For mobile GPS testing
+on a local network, include the exact frontend origin used by the phone, such
+as `http://192.168.1.20:5174`, and restart the API. The frontend defaults to
+the API at the same hostname on port `3000`; set `VITE_API_URL` if the API is
+hosted elsewhere.
+
+To make the Vite development server reachable from the phone, start it with
+`npm run dev -- --host 0.0.0.0`, then use the computer's LAN address instead
+of `localhost`.
+
+| Role | Permissions |
+| --- | --- |
+| `SUPERADMIN` | Manage vehicles and drivers, plan routes, and manage users and roles |
+| `ADMIN` | Manage vehicles and drivers, and plan routes |
+| `PLANIFICADOR` | View vehicles and drivers, and manage orders and routes |
+| `VIEWER` | Read-only access to the planner and vehicle/driver data |
+
+Only `SUPERADMIN` and `ADMIN` can access `/dashboard`; other signed-in users
+are redirected to `/planner`.
+
+### Driver GPS
+
+An `ADMIN` or `SUPERADMIN` creates a driver account from the conductor record,
+then assigns that driver to a vehicle. The driver signs in on the phone and
+opens `/driver`. Starting the assigned route requests the phone's location;
+the browser must grant permission. While the route is active, location updates
+are sent every 10 seconds (or when the browser reports a new position), and
+the planning map refreshes every 10 seconds. Arrivals are recorded within
+100 metres of an undelivered stop; departure is recorded after leaving a
+150-metre radius. GPS distance is accumulated separately from the OSRM estimate
+and ignores low-accuracy or implausible samples.
+
+The driver must keep the page open and the phone online. Mobile browsers may
+pause location updates when the screen is locked or the page is backgrounded.
+Geolocation is only available in a secure browser context: HTTPS is required
+on a phone (plain HTTP is generally allowed only on localhost). For local
+phone testing, serve the frontend and API over HTTPS with a certificate trusted
+by that phone, or use a deployed HTTPS environment. Use the phone's LAN
+address instead of `localhost`, and allow that exact frontend origin in
+`FRONTEND_ORIGIN`.
+
+Apply the GPS tracking migration after reviewing its schema changes:
+
+```bash
+npx sequelize-cli db:migrate
+```
+
+### OwnTracks HTTP tracking
+
+OwnTracks can send background location updates directly to the API while a
+driver has an active route. The driver account must be assigned to the vehicle.
+Use a publicly reachable HTTPS API URL (not `localhost`) in OwnTracks HTTP mode:
+
+```text
+https://<API_HOST>/api/seguimiento/owntracks/<VEHICLE_ID>
+```
+
+Set HTTP Basic authentication to the driver's RouteMind email and password.
+In OwnTracks, configure the device's HTTP connection to use those credentials,
+then allow background location access and enable location publishing. Start the
+vehicle's route in RouteMind before testing; updates are accepted only while
+that route is active and only for a vehicle assigned to the authenticated
+driver. Location messages update the vehicle's current GPS position, real
+distance, and stop arrival/departure tracking. Other OwnTracks message types
+are ignored.
+
+Use HTTPS because OwnTracks sends the driver's password using HTTP Basic
+authentication. Do not expose the API over plain HTTP on a public network.
+
 ## Project setup
 
 ```bash
