@@ -4,6 +4,14 @@ import { apiFetch, readApiResponse } from '../utils/api'
 
 function getCurrentPosition() {
   return new Promise((resolve, reject) => {
+    if (!window.isSecureContext) {
+      reject(
+        new Error(
+          'El GPS del teléfono requiere abrir RouteMind con una URL HTTPS. Usa la dirección https:// de ngrok, no localhost ni la dirección de red local.',
+        ),
+      )
+      return
+    }
     if (!navigator.geolocation) {
       reject(new Error('Este dispositivo no permite acceder al GPS del navegador.'))
       return
@@ -112,7 +120,9 @@ export default function DriverPage() {
       return
     }
     if (!window.isSecureContext) {
-      setError('El GPS requiere HTTPS o una dirección local como localhost.')
+      setError(
+        'El GPS del teléfono requiere abrir RouteMind con una URL HTTPS. Usa la dirección https:// de ngrok, no localhost ni la dirección de red local.',
+      )
       return
     }
     if (watchId.current !== null) {

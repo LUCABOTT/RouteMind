@@ -331,12 +331,14 @@ export default function AdminDashboard({ section = 'dashboard' }) {
         <nav className="topbar-nav admin-sidebar-nav" aria-label="Navegación principal">
           <Link className={section === 'dashboard' ? 'active' : ''} to="/dashboard">Dashboard</Link>
           <Link to="/planner">Route Optimizer</Link>
+          <Link to="/orders">Pedidos</Link>
           <Link className={section === 'create-driver' ? 'active' : ''} to="/drivers/new">Crear conductor</Link>
           <Link className={section === 'create-vehicle' ? 'active' : ''} to="/vehicles/new">Crear vehículo</Link>
           {isSuperadmin && <Link className={section === 'create-user' ? 'active' : ''} to="/users/new">Crear usuario</Link>}
           {isSuperadmin && <Link className={section === 'user-roles' ? 'active' : ''} to="/users/roles">Cuentas y roles</Link>}
           <Link className={section === 'vehicles' ? 'active' : ''} to="/vehicles">Vehículos</Link>
           <Link className={section === 'drivers' ? 'active' : ''} to="/drivers">Conductores</Link>
+          <Link to="/drivers/accounts">Accesos conductores</Link>
           {isSuperadmin && <Link className={section === 'users' ? 'active' : ''} to="/users">Usuarios y roles</Link>}
         </nav>
         <div className="topbar-user topbar-user-sidebar">
@@ -833,14 +835,21 @@ export default function AdminDashboard({ section = 'dashboard' }) {
                 Contraseña temporal
                 <input required type="password" minLength={8} maxLength={72} value={userForm.password} onChange={(event) => setUserForm({ ...userForm, password: event.target.value })} />
               </label>
-              {section !== 'create-user' && (
-                <label>
-                  Rol inicial
-                  <select value={userForm.role} onChange={(event) => setUserForm({ ...userForm, role: event.target.value })}>
-                    {USER_ROLES.map((role) => <option key={role} value={role}>{role}</option>)}
-                  </select>
-                </label>
-              )}
+              <label>
+                Rol inicial
+                <select
+                  value={userForm.role}
+                  onChange={(event) =>
+                    setUserForm({ ...userForm, role: event.target.value })
+                  }
+                >
+                  {USER_ROLES.map((role) => (
+                    <option key={role} value={role}>
+                      {role}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <div className="admin-form-actions">
                 <button className="refresh-button" disabled={busy}>Crear usuario</button>
               </div>

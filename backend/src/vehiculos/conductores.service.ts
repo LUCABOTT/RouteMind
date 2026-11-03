@@ -76,6 +76,43 @@ export class ConductoresService {
     });
   }
 
+  async listarParaCuentas() {
+    const conductores = await this.conductorModel.findAll({
+      where: { activo: true },
+      attributes: ['id', 'nombre', 'activo'],
+      order: [['nombre', 'ASC']],
+    });
+    const cuentas = conductores.length
+      ? await this.userModel.findAll({
+          where: {
+            conductorId: {
+              [Op.in]: conductores.map((conductor) => conductor.id),
+            },
+          },
+          attributes: ['id', 'email', 'active', 'conductorId'],
+        })
+      : [];
+    const cuentaPorConductor = new Map(
+      cuentas.map((cuenta) => [cuenta.conductorId, cuenta]),
+    );
+
+    return conductores.map((conductor) => {
+      const cuenta = cuentaPorConductor.get(conductor.id);
+      return {
+        id: conductor.id,
+        nombre: conductor.nombre,
+        activo: conductor.activo,
+        cuenta: cuenta
+          ? {
+              id: cuenta.id,
+              email: cuenta.email,
+              active: cuenta.active,
+            }
+          : null,
+      };
+    });
+  }
+
   async crearCuenta(
     id: number,
     email: string,

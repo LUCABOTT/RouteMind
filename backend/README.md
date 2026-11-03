@@ -48,15 +48,12 @@ The password must have at least 12 characters. Do not commit `.env`. Public
 registration always creates a `PLANIFICADOR`; only the `SUPERADMIN` can change
 user roles, activate/deactivate users, or delete users.
 
-`FRONTEND_ORIGIN` accepts a comma-separated allowlist. For mobile GPS testing
-on a local network, include the exact frontend origin used by the phone, such
-as `http://192.168.1.20:5174`, and restart the API. The frontend defaults to
-the API at the same hostname on port `3000`; set `VITE_API_URL` if the API is
-hosted elsewhere.
-
-To make the Vite development server reachable from the phone, start it with
-`npm run dev -- --host 0.0.0.0`, then use the computer's LAN address instead
-of `localhost`.
+`FRONTEND_ORIGIN` accepts a comma-separated allowlist. For phone testing with
+the Vite development server, the frontend proxies `/api` to the local backend,
+so both use one HTTPS origin and no additional CORS origin is required. Start
+the frontend with `npm --prefix frontend run dev`, then expose port `5173` with
+ngrok and open its HTTPS URL on the phone. The backend must still be running
+locally on port `3000`. If the API is hosted elsewhere, set `VITE_API_URL`.
 
 | Role | Permissions |
 | --- | --- |
@@ -67,6 +64,11 @@ of `localhost`.
 
 Only `SUPERADMIN` and `ADMIN` can access `/dashboard`; other signed-in users
 are redirected to `/planner`.
+
+`SUPERADMIN`, `ADMIN`, and `PLANIFICADOR` can create driver login credentials
+from `/drivers/accounts`. This permission only creates an account for an
+existing active driver; creating, editing, or deleting driver records remains
+restricted to administrators.
 
 ### Driver GPS
 
@@ -99,10 +101,12 @@ npx sequelize-cli db:migrate
 
 OwnTracks can send background location updates directly to the API while a
 driver has an active route. The driver account must be assigned to the vehicle.
-Use a publicly reachable HTTPS API URL (not `localhost`) in OwnTracks HTTP mode:
+For local development, expose the Vite frontend through HTTPS and configure
+OwnTracks to use that same public frontend URL. Vite proxies `/api` requests to
+the local backend:
 
 ```text
-https://<API_HOST>/api/seguimiento/owntracks/<VEHICLE_ID>
+https://<FRONTEND_NGROK_HOST>/api/seguimiento/owntracks/<VEHICLE_ID>
 ```
 
 Set HTTP Basic authentication to the driver's RouteMind email and password.

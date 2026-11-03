@@ -1,4 +1,4 @@
-function Sidebar({ user, onLogout }) {
+function Sidebar({ user, onLogout, activeSection = 'planner' }) {
   const isAdmin = ['SUPERADMIN', 'ADMIN'].includes(user?.role)
 
   return (
@@ -13,8 +13,29 @@ function Sidebar({ user, onLogout }) {
 
       <nav className="topbar-nav" aria-label="Navegación principal">
         <a href={isAdmin ? '/dashboard' : '#overview'}>Dashboard</a>
-        <a className="active" href="/planner">Route Optimizer</a>
+        <a
+          className={activeSection === 'planner' ? 'active' : ''}
+          href="/planner"
+        >
+          Route Optimizer
+        </a>
         <a href="#history">Routes</a>
+        {['SUPERADMIN', 'ADMIN', 'PLANIFICADOR'].includes(user?.role) && (
+          <a
+            className={activeSection === 'orders' ? 'active' : ''}
+            href="/orders"
+          >
+            Pedidos
+          </a>
+        )}
+        {['SUPERADMIN', 'ADMIN', 'PLANIFICADOR'].includes(user?.role) && (
+          <a
+            className={activeSection === 'driver-accounts' ? 'active' : ''}
+            href="/drivers/accounts"
+          >
+            Accesos conductores
+          </a>
+        )}
         {isAdmin && (
           <>
             <a href="/vehicles">Vehículos</a>

@@ -3,7 +3,9 @@ const apiHost = window.location.hostname.includes(':')
   : window.location.hostname
 const defaultApiUrl = `${window.location.protocol}//${apiHost}:3000/api`
 
-export const API_URL = import.meta.env.VITE_API_URL || defaultApiUrl
+export const API_URL =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.DEV ? '/api' : defaultApiUrl)
 
 export const apiFetch = (path, options = {}) =>
   fetch(`${API_URL}${path}`, {

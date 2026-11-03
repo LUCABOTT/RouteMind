@@ -11,6 +11,8 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import AdminDashboard from './components/AdminDashboard'
 import DriverPage from './components/DriverPage'
 import Sidebar from './components/Sidebar'
+import OrdersPage from './components/OrdersPage'
+import DriverAccountsPage from './components/DriverAccountsPage'
 import 'leaflet/dist/leaflet.css'
 import './App.css'
 
@@ -974,6 +976,14 @@ export default function App() {
         }
       />
       <Route
+        path="/orders"
+        element={
+          <ProtectedRoute roles={['SUPERADMIN', 'ADMIN', 'PLANIFICADOR']}>
+            <OrdersPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/driver"
         element={
           <ProtectedRoute roles={['CONDUCTOR']}>
@@ -1010,6 +1020,14 @@ export default function App() {
         element={
           <ProtectedRoute roles={['SUPERADMIN', 'ADMIN']}>
             <AdminDashboard section="create-driver" />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/drivers/accounts"
+        element={
+          <ProtectedRoute roles={['SUPERADMIN', 'ADMIN', 'PLANIFICADOR']}>
+            <DriverAccountsPage />
           </ProtectedRoute>
         }
       />

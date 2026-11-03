@@ -24,6 +24,12 @@ export class ConductoresController {
     return this.conductoresService.listar();
   }
 
+  @Get('cuentas')
+  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.PLANIFICADOR)
+  listarParaCuentas() {
+    return this.conductoresService.listarParaCuentas();
+  }
+
   @Get(':id')
   @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
   buscarPorId(@Param('id', ParseIntPipe) id: number) {
@@ -31,7 +37,7 @@ export class ConductoresController {
   }
 
   @Post(':id/cuenta')
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.PLANIFICADOR)
   crearCuenta(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: CrearCuentaConductorDto,
