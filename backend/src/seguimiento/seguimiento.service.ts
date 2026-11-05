@@ -14,10 +14,14 @@ import { Recorrido } from '../recorridos/models/recorrido.model';
 import { Conductor } from '../vehiculos/models/conductor.model';
 import { Vehiculo } from '../vehiculos/models/vehiculo.model';
 import { ParadaRecorrido } from './models/parada-recorrido.model';
+import { UbicacionRecorrido } from './models/ubicacion-recorrido.model';
 import { UbicacionDto } from './dto/ubicacion.dto';
+import { RealtimeGateway } from '../realtime/realtime.gateway';
 
-const ARRIVAL_RADIUS_KM = 0.1;
-const DEPARTURE_RADIUS_KM = 0.15;
+const STOP_RADIUS_KM = 0.1;
+const STOP_MINIMUM_SECONDS = 5 * 60;
+const MAX_STOP_SAMPLE_GAP_SECONDS = 2 * 60;
+const MAX_MOVEMENT_INTERVAL_SECONDS = 5 * 60;
 
 @Injectable()
 export class SeguimientoService {
@@ -36,7 +40,10 @@ export class SeguimientoService {
     private readonly recorridoModel: typeof Recorrido,
     @InjectModel(ParadaRecorrido)
     private readonly paradaModel: typeof ParadaRecorrido,
+    @InjectModel(UbicacionRecorrido)
+    private readonly ubicacionModel: typeof UbicacionRecorrido,
     private readonly pedidosService: PedidosService,
+    private readonly realtimeGateway: RealtimeGateway,
   ) {}
 
   async misVehiculos(userId: number) {
@@ -83,12 +90,26 @@ export class SeguimientoService {
 
   async iniciarRecorrido(userId: number, location: UbicacionDto) {
     const vehicle = await this.vehiculoAsignado(userId, location.vehiculoId);
-    await this.guardarUbicacion(vehicle, location);
-    return this.pedidosService.iniciarRecorrido(vehicle.id);
+    const registradoEn = new Date();
+    await this.guardarUbicacion(vehicle, location, undefined, registradoEn);
+    const result = await this.pedidosService.iniciarRecorrido(vehicle.id);
+    await this.ubicacionModel.create({
+      recorridoId: result.recorridoId,
+      latitud: location.latitud,
+      longitud: location.longitud,
+      precisionM: location.accuracy ?? null,
+      registradoEn,
+    });
+    this.realtimeGateway.publishLocationUpdated({
+      vehiculoId: vehicle.id,
+      recorridoId: result.recorridoId,
+      registradoEn,
+    });
+    return result;
   }
 
   async registrarUbicacion(userId: number, location: UbicacionDto) {
-    return this.sequelize.transaction(async (transaction) => {
+    const result = await this.sequelize.transaction(async (transaction) => {
       const vehicle = await this.vehiculoAsignado(
         userId,
         location.vehiculoId,
@@ -99,29 +120,55 @@ export class SeguimientoService {
         throw new ConflictException('El vehículo no tiene un recorrido activo');
       }
 
-      const previousPosition = {
-        latitud: vehicle.latitudActual,
-        longitud: vehicle.longitudActual,
-        updatedAt: vehicle.gpsUpdatedAt,
-        accuracy: vehicle.gpsAccuracyM,
-      };
-      await this.guardarUbicacion(vehicle, location, transaction);
+      const registradoEn = new Date();
+      const previousPosition = await this.ubicacionModel.findOne({
+        where: {
+          recorridoId: recorrido.id,
+          [Op.or]: [
+            { precisionM: null },
+            { precisionM: { [Op.lte]: 100 } },
+          ],
+        },
+        order: [['registradoEn', 'DESC']],
+        transaction,
+      });
+      await this.ubicacionModel.create(
+        {
+          recorridoId: recorrido.id,
+          latitud: location.latitud,
+          longitud: location.longitud,
+          precisionM: location.accuracy ?? null,
+          registradoEn,
+        },
+        { transaction },
+      );
+      await this.guardarUbicacion(vehicle, location, transaction, registradoEn);
       await this.acumularDistanciaReal(
         recorrido,
         previousPosition,
         location,
+        registradoEn,
         transaction,
       );
       await this.actualizarParadaActual(
         recorrido.id,
         location,
+        registradoEn,
+        previousPosition,
         transaction,
       );
       return {
         recibido: true,
-        registradoEn: vehicle.gpsUpdatedAt,
+        registradoEn,
+        recorridoId: recorrido.id,
       };
     });
+    this.realtimeGateway.publishLocationUpdated({
+      vehiculoId: location.vehiculoId,
+      recorridoId: result.recorridoId,
+      registradoEn: result.registradoEn,
+    });
+    return result;
   }
 
   async entregarPedido(
@@ -149,16 +196,24 @@ export class SeguimientoService {
     }
 
     const result = await this.pedidosService.marcarEntregado(pedidoId);
-    await this.paradaModel.update(
-      { salidaEn: new Date() },
-      {
-        where: {
-          recorridoId: recorrido.id,
-          pedidoId,
-          salidaEn: null,
-        },
-      },
-    );
+    const paradasAbiertas = await this.paradaModel.findAll({
+      where: { recorridoId: recorrido.id, salidaEn: null },
+    });
+    const salidaEn = new Date();
+    for (const parada of paradasAbiertas) {
+      const duracionSegundos =
+        (salidaEn.getTime() - parada.llegadaEn.getTime()) / 1000;
+      if (duracionSegundos < STOP_MINIMUM_SECONDS) {
+        await parada.destroy();
+      } else {
+        await parada.update({ salidaEn });
+      }
+    }
+    this.realtimeGateway.publishRouteUpdated({
+      vehiculoId: vehicle.id,
+      recorridoId: recorrido.id,
+      pedidoId,
+    });
     return result;
   }
 
@@ -244,38 +299,36 @@ export class SeguimientoService {
     vehicle: Vehiculo,
     location: UbicacionDto,
     transaction?: Transaction,
+    registradoEn = new Date(),
   ): Promise<void> {
     await vehicle.update({
       latitudActual: location.latitud,
       longitudActual: location.longitud,
-      gpsUpdatedAt: new Date(),
+      gpsUpdatedAt: registradoEn,
       gpsAccuracyM: location.accuracy ?? null,
     }, { transaction });
   }
 
   private async acumularDistanciaReal(
     recorrido: Recorrido,
-    previous: {
-      latitud: number | null;
-      longitud: number | null;
-      updatedAt: Date | null;
-      accuracy: number | null;
-    },
+    previous: UbicacionRecorrido | null,
     current: UbicacionDto,
+    registradoEn: Date,
     transaction: Transaction,
   ): Promise<void> {
     if (
+      !previous ||
       previous.latitud == null ||
       previous.longitud == null ||
-      previous.updatedAt == null ||
-      (previous.accuracy != null && previous.accuracy > 100) ||
+      (previous.precisionM != null && previous.precisionM > 100) ||
       (current.accuracy != null && current.accuracy > 100)
     ) {
       return;
     }
 
-    const elapsedHours =
-      (Date.now() - previous.updatedAt.getTime()) / 3_600_000;
+    const elapsedSeconds =
+      (registradoEn.getTime() - previous.registradoEn.getTime()) / 1000;
+    const elapsedHours = elapsedSeconds / 3600;
     const distance = this.distanciaKm(
       previous.latitud,
       previous.longitud,
@@ -285,27 +338,30 @@ export class SeguimientoService {
     if (elapsedHours <= 0 || distance < 0.005) return;
     const accuracyAllowanceKm = Math.max(
       0.02,
-      ((previous.accuracy ?? 10) + (current.accuracy ?? 10)) / 1000 * 2,
+      ((previous.precisionM ?? 10) + (current.accuracy ?? 10)) / 1000 * 2,
     );
     if (distance > 200 * elapsedHours + accuracyAllowanceKm) return;
 
+    const movementSeconds =
+      elapsedSeconds <= MAX_MOVEMENT_INTERVAL_SECONDS &&
+      distance / elapsedHours >= 1
+        ? Math.round(elapsedSeconds)
+        : 0;
     await recorrido.update({
-      distanciaRealKm:
-        Number(recorrido.distanciaRealKm ?? 0) + distance,
+      distanciaRealKm: Number(recorrido.distanciaRealKm ?? 0) + distance,
+      tiempoMovimientoSegundos:
+        Number(recorrido.tiempoMovimientoSegundos ?? 0) + movementSeconds,
     }, { transaction });
   }
 
   private async actualizarParadaActual(
     recorridoId: number,
     location: UbicacionDto,
+    registradoEn: Date,
+    previousPosition: UbicacionRecorrido | null,
     transaction: Transaction,
   ): Promise<void> {
     if (location.accuracy != null && location.accuracy > 100) return;
-    const pedidos = await this.pedidoModel.findAll({
-      where: { recorridoId, estado: 'EN_CAMINO' },
-      transaction,
-      lock: transaction.LOCK.UPDATE,
-    });
     const paradasAbiertas = await this.paradaModel.findAll({
       where: { recorridoId, salidaEn: null },
       order: [['llegadaEn', 'DESC']],
@@ -315,39 +371,60 @@ export class SeguimientoService {
     const paradaAbierta = paradasAbiertas[0];
 
     if (paradaAbierta) {
-      const pedidoActual = pedidos.find(
-        (pedido) => pedido.id === paradaAbierta.pedidoId,
-      );
-      const distanciaActual = pedidoActual
-        ? this.distanciaKm(
-            location.latitud,
-            location.longitud,
-            Number(pedidoActual.latitud),
-            Number(pedidoActual.longitud),
-          )
-        : Infinity;
-      if (distanciaActual <= DEPARTURE_RADIUS_KM) return;
+      const gapSeconds = previousPosition
+        ? (registradoEn.getTime() -
+            previousPosition.registradoEn.getTime()) /
+          1000
+        : 0;
+      if (gapSeconds > MAX_STOP_SAMPLE_GAP_SECONDS) {
+        const salidaEn = previousPosition?.registradoEn ?? registradoEn;
+        const duracionSegundos = Math.max(
+          0,
+          (salidaEn.getTime() - paradaAbierta.llegadaEn.getTime()) / 1000,
+        );
+        if (duracionSegundos < STOP_MINIMUM_SECONDS) {
+          await paradaAbierta.destroy({ transaction });
+        } else {
+          await paradaAbierta.update({ salidaEn }, { transaction });
+        }
+      } else {
+        const distanciaActual =
+          paradaAbierta.latitud != null && paradaAbierta.longitud != null
+            ? this.distanciaKm(
+                location.latitud,
+                location.longitud,
+                Number(paradaAbierta.latitud),
+                Number(paradaAbierta.longitud),
+              )
+            : Infinity;
+        if (distanciaActual <= STOP_RADIUS_KM) return;
 
-      await paradaAbierta.update({ salidaEn: new Date() }, { transaction });
+        const duracionSegundos = Math.max(
+          0,
+          (registradoEn.getTime() - paradaAbierta.llegadaEn.getTime()) / 1000,
+        );
+        if (duracionSegundos < STOP_MINIMUM_SECONDS) {
+          await paradaAbierta.destroy({ transaction });
+        } else {
+          await paradaAbierta.update(
+            { salidaEn: registradoEn },
+            { transaction },
+          );
+        }
+      }
     }
 
-    const pedidoCercano = pedidos.find(
-      (pedido) =>
-        this.distanciaKm(
-          location.latitud,
-          location.longitud,
-          Number(pedido.latitud),
-          Number(pedido.longitud),
-        ) <= ARRIVAL_RADIUS_KM,
+    await this.paradaModel.create(
+      {
+        recorridoId,
+        pedidoId: null,
+        latitud: location.latitud,
+        longitud: location.longitud,
+        llegadaEn: registradoEn,
+        salidaEn: null,
+      },
+      { transaction },
     );
-    if (!pedidoCercano) return;
-
-    await this.paradaModel.create({
-      recorridoId,
-      pedidoId: pedidoCercano.id,
-      llegadaEn: new Date(),
-      salidaEn: null,
-    }, { transaction });
   }
 
   private async listarParadas(recorridoId: number) {
@@ -355,18 +432,45 @@ export class SeguimientoService {
       where: { recorridoId },
       order: [['llegadaEn', 'ASC']],
     });
-    const pedidoIds = [...new Set(visits.map((visit) => visit.pedidoId))];
+    const now = Date.now();
+    const paradasDetectadas = visits.filter((visit) => {
+      const duracionSegundos =
+        ((visit.salidaEn?.getTime() ?? now) - visit.llegadaEn.getTime()) /
+        1000;
+      return duracionSegundos >= STOP_MINIMUM_SECONDS;
+    });
+    const pedidoIds = [
+      ...new Set(
+        paradasDetectadas
+          .map((visit) => visit.pedidoId)
+          .filter((pedidoId): pedidoId is number => pedidoId != null),
+      ),
+    ];
     const orders = pedidoIds.length
       ? await this.pedidoModel.findAll({
           where: { id: { [Op.in]: pedidoIds } },
         })
       : [];
     const orderById = new Map(orders.map((order) => [order.id, order]));
-    const now = Date.now();
 
-    return visits.map((visit) => ({
+    return paradasDetectadas.map((visit) => ({
       pedidoId: visit.pedidoId,
-      destinatario: orderById.get(visit.pedidoId)?.destinatario ?? 'Parada',
+      destinatario:
+        (visit.pedidoId == null
+          ? undefined
+          : orderById.get(visit.pedidoId)?.destinatario) ?? 'Parada',
+      latitud:
+        visit.latitud ??
+        (visit.pedidoId == null ||
+        orderById.get(visit.pedidoId)?.latitud == null
+          ? null
+          : Number(orderById.get(visit.pedidoId)?.latitud)),
+      longitud:
+        visit.longitud ??
+        (visit.pedidoId == null ||
+        orderById.get(visit.pedidoId)?.longitud == null
+          ? null
+          : Number(orderById.get(visit.pedidoId)?.longitud)),
       llegadaEn: visit.llegadaEn,
       salidaEn: visit.salidaEn,
       duracionSegundos: Math.max(

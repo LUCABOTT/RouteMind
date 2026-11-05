@@ -19,7 +19,7 @@ import { UsersService } from './users.service';
   ],
   controllers: [AuthController, UsersController],
   providers: [AuthService, UsersService, AuthGuard, RolesGuard],
-  exports: [AuthGuard, RolesGuard, UsersService, AuthService],
+  exports: [AuthGuard, RolesGuard, UsersService, AuthService, JwtModule],
 })
 export class AuthModule implements OnModuleInit {
   constructor(private readonly usersService: UsersService) {}

@@ -30,9 +30,21 @@ export class ParadaRecorrido extends Model {
   @Column({
     type: DataType.INTEGER,
     field: 'pedido_id',
-    allowNull: false,
+    allowNull: true,
   })
-  declare pedidoId: number;
+  declare pedidoId: number | null;
+
+  @Column({
+    type: DataType.DOUBLE,
+    allowNull: true,
+  })
+  declare latitud: number | null;
+
+  @Column({
+    type: DataType.DOUBLE,
+    allowNull: true,
+  })
+  declare longitud: number | null;
 
   @Column({
     type: DataType.DATE,

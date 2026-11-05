@@ -21,6 +21,11 @@ function RouteDetail({
   ruta,
   onCerrar,
 }) {
+  const ubicacionesGps = (recorrido.ubicacionesGps || []).filter(
+    (ubicacion) =>
+      Number.isFinite(Number(ubicacion.latitud)) &&
+      Number.isFinite(Number(ubicacion.longitud)),
+  )
   const pedidosConCoordenadas = (recorrido.pedidos || []).filter(
     (pedido) =>
       pedido.latitud != null &&
@@ -32,12 +37,22 @@ function RouteDetail({
     Number(pedido.latitud),
     Number(pedido.longitud),
   ])
+  const puntosGps = ubicacionesGps.map((ubicacion) => [
+    Number(ubicacion.latitud),
+    Number(ubicacion.longitud),
+  ])
+  const puntosMapa = puntosGps.length > 0 ? puntosGps : puntos
+  const paradas = recorrido.paradas || []
   const distanciaEstimada = obtenerDistanciaEstimadaKm(recorrido)
   const distanciaReal =
     recorrido.distanciaRealKm != null &&
     Number.isFinite(Number(recorrido.distanciaRealKm))
       ? Number(recorrido.distanciaRealKm)
       : null
+  const duracionMovimiento =
+    ubicacionesGps.length > 0
+      ? `${Math.floor(Number(recorrido.tiempoMovimientoSegundos || 0) / 3600)} h ${Math.floor((Number(recorrido.tiempoMovimientoSegundos || 0) % 3600) / 60)} min`
+      : 'Sin datos GPS'
 
   return (
     <section className="history-detail-panel">
@@ -83,6 +98,14 @@ function RouteDetail({
               : 'Pendiente de seguimiento GPS'}
           </strong>
         </article>
+        <article>
+          <span>Tiempo total en movimiento</span>
+          <strong>{duracionMovimiento}</strong>
+        </article>
+        <article>
+          <span>Paradas de 5 minutos o más</span>
+          <strong>{paradas.length}</strong>
+        </article>
         {distanciaReal != null && distanciaEstimada != null && (
           <article>
             <span>Diferencia real vs. estimada</span>
@@ -109,7 +132,11 @@ function RouteDetail({
         <div className="history-map-heading">
           <div>
             <h4>Mapa del recorrido</h4>
-            <p>Ubicaciones de entrega y ruta estimada por carretera</p>
+            <p>
+              {puntosGps.length > 0
+                ? 'Trayecto realizado según las ubicaciones GPS registradas'
+                : 'Ubicaciones de entrega y ruta estimada por carretera'}
+            </p>
           </div>
           <span className="map-tag">OpenStreetMap</span>
         </div>
@@ -121,17 +148,17 @@ function RouteDetail({
           <div className="message error-message">{errorRuta}</div>
         )}
 
-        {puntos.length > 0 ? (
+        {puntosMapa.length > 0 ? (
           <div className="history-map-wrapper">
             <MapContainer
               key={`mapa-historico-${recorrido.id}`}
-              center={puntos[0]}
+              center={puntosMapa[0]}
               zoom={13}
               scrollWheelZoom
               className="history-route-map"
             >
               <TileLayer attribution={ATTRIBUTION} url={TILE_URL} />
-              <AjustarMapa puntos={puntos} />
+              <AjustarMapa puntos={puntosMapa} />
               {pedidosConCoordenadas.map((pedido, index) => (
                 <Marker
                   key={pedido.id}
@@ -154,6 +181,48 @@ function RouteDetail({
                   </Popup>
                 </Marker>
               ))}
+              {puntosGps.length > 0 && (
+                <>
+                  <Marker
+                    position={puntosGps[0]}
+                    icon={crearIcono(L, 'I', 'origen')}
+                  >
+                    <Popup>Inicio del trayecto GPS</Popup>
+                  </Marker>
+                  {puntosGps.length > 1 && (
+                    <Marker
+                      position={puntosGps[puntosGps.length - 1]}
+                      icon={crearIcono(L, 'F', 'entregado')}
+                    >
+                      <Popup>Última ubicación GPS registrada</Popup>
+                    </Marker>
+                  )}
+                </>
+              )}
+              {paradas
+                .filter(
+                  (parada) =>
+                    parada.latitud != null &&
+                    parada.longitud != null,
+                )
+                .map((parada, index) => (
+                  <Marker
+                    key={`parada-gps-${parada.llegadaEn}-${index}`}
+                    position={[
+                      Number(parada.latitud),
+                      Number(parada.longitud),
+                    ]}
+                    icon={crearIcono(L, '5+', 'parada')}
+                  >
+                    <Popup>
+                      <strong>Parada detectada</strong>
+                      <br />
+                      Duración: {Math.floor(parada.duracionSegundos / 60)} min
+                      <br />
+                      {parada.latitud}, {parada.longitud}
+                    </Popup>
+                  </Marker>
+                ))}
               {ruta.length > 1 && (
                 <Polyline
                   positions={ruta}
@@ -172,6 +241,38 @@ function RouteDetail({
           </p>
         )}
       </div>
+
+      {paradas.length > 0 && (
+        <div className="history-detail-stops">
+          <h4>Paradas de 5 minutos o más</h4>
+          <div className="history-stop-list">
+            {paradas.map((parada, index) => (
+              <article
+                className="history-stop-card"
+                key={`${parada.llegadaEn}-${index}`}
+              >
+                <strong>
+                  {parada.destinatario || `Parada ${index + 1}`}
+                </strong>
+                <span>
+                  Duración: {Math.floor(parada.duracionSegundos / 60)} min
+                  {parada.enParada ? ' · En curso' : ''}
+                </span>
+                <span>
+                  Ubicación:{' '}
+                  {parada.latitud != null && parada.longitud != null
+                    ? `${Number(parada.latitud).toFixed(6)}, ${Number(parada.longitud).toFixed(6)}`
+                    : 'No disponible'}
+                </span>
+                <small>Llegada: {formatDate(parada.llegadaEn)}</small>
+                {parada.salidaEn && (
+                  <small>Salida: {formatDate(parada.salidaEn)}</small>
+                )}
+              </article>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="history-detail-orders">
         <h4>Pedidos del recorrido</h4>

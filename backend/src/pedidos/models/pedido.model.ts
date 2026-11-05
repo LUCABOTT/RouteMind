@@ -40,7 +40,7 @@ export class Pedido extends Model {
 declare recorridoId: number | null;
 
 @BelongsTo(() => Recorrido)
-declare recorrido?: Recorrido;
+declare recorrido?: InstanceType<typeof Recorrido>;
 
   @PrimaryKey
   @AutoIncrement

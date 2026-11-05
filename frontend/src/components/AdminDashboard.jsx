@@ -35,7 +35,7 @@ function AdminPagination({ page, total, onChange }) {
 }
 
 export default function AdminDashboard({ section = 'dashboard' }) {
-  const { user, logout } = useAuth()
+  const { user, logout, realtimeError } = useAuth()
   const [tab, setTab] = useState(() => (
     section === 'vehicles' || section === 'create-vehicle' ? 'vehiculos'
       : section === 'drivers' || section === 'create-driver' ? 'conductores'
@@ -121,6 +121,12 @@ export default function AdminDashboard({ section = 'dashboard' }) {
     queueMicrotask(() => {
       void loadData()
     })
+    window.addEventListener('routemind:route-updated', loadData)
+    window.addEventListener('routemind:reconnected', loadData)
+    return () => {
+      window.removeEventListener('routemind:route-updated', loadData)
+      window.removeEventListener('routemind:reconnected', loadData)
+    }
   }, [loadData])
 
   async function runAction(action, successMessage) {
@@ -401,6 +407,11 @@ export default function AdminDashboard({ section = 'dashboard' }) {
         </nav>
 
         {error && <div className="message error-message">{error}</div>}
+        {realtimeError && (
+          <div className="message error-message" role="status">
+            {realtimeError} Se actualizará la información al reconectar.
+          </div>
+        )}
         {notice && <div className="message">{notice}</div>}
 
         {tab === 'dashboard' && (

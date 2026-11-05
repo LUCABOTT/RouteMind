@@ -8,10 +8,12 @@ import { PedidosCrudService } from './services/pedidos-crud.service';
 import { PedidosRecorridosService } from './services/pedidos-recorridos.service';
 import { Vehiculo } from '../vehiculos/models/vehiculo.model';
 import { Recorrido } from '../recorridos/models/recorrido.model';
+import { RealtimeModule } from '../realtime/realtime.module';
 
 @Module({
   imports: [
     SequelizeModule.forFeature([Pedido, Vehiculo, Recorrido]),
+    RealtimeModule,
   ],
   controllers: [PedidosController],
   providers: [
