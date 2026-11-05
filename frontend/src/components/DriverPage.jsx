@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '../auth/useAuth'
 import { apiFetch, readApiResponse } from '../utils/api'
+import DriverOrdersMap from './DriverOrdersMap'
 
 function getCurrentPosition() {
   return new Promise((resolve, reject) => {
@@ -34,7 +35,7 @@ function formatDuration(seconds) {
 }
 
 export default function DriverPage() {
-  const { user, logout } = useAuth()
+  const { user, logout, realtimeError } = useAuth()
   const [vehicles, setVehicles] = useState([])
   const [vehicleId, setVehicleId] = useState('')
   const [loading, setLoading] = useState(true)
@@ -69,8 +70,12 @@ export default function DriverPage() {
   useEffect(() => {
     queueMicrotask(() => void loadVehicles())
     const refresh = window.setInterval(() => void loadVehicles(), 15000)
+    window.addEventListener('routemind:route-updated', loadVehicles)
+    window.addEventListener('routemind:reconnected', loadVehicles)
     return () => {
       window.clearInterval(refresh)
+      window.removeEventListener('routemind:route-updated', loadVehicles)
+      window.removeEventListener('routemind:reconnected', loadVehicles)
       if (watchId.current !== null) {
         navigator.geolocation?.clearWatch(watchId.current)
       }
@@ -211,6 +216,11 @@ export default function DriverPage() {
         </p>
 
         {error && <div className="message error-message">{error}</div>}
+        {realtimeError && (
+          <div className="message error-message" role="status">
+            {realtimeError} Se intentará reconectar automáticamente.
+          </div>
+        )}
         {notice && <div className="message">{notice}</div>}
 
         {loading ? (
@@ -271,6 +281,10 @@ export default function DriverPage() {
                   <p>No hay pedidos asignados a este vehículo.</p>
                 )}
 
+                {selectedVehicle.pedidos.length > 0 && (
+                  <DriverOrdersMap pedidos={selectedVehicle.pedidos} />
+                )}
+
                 <div className="driver-stops">
                   <h4>Entregas</h4>
                   {selectedVehicle.pedidos.map((order) => {
@@ -309,6 +323,9 @@ export default function DriverPage() {
                       <p key={`${stop.pedidoId}-${stop.llegadaEn}`}>
                         {stop.destinatario}: {formatDuration(stop.duracionSegundos)}
                         {stop.enParada ? ' · actualmente aquí' : ''}
+                        {stop.latitud != null && stop.longitud != null
+                          ? ` · ${Number(stop.latitud).toFixed(5)}, ${Number(stop.longitud).toFixed(5)}`
+                          : ''}
                       </p>
                     ))}
                   </div>

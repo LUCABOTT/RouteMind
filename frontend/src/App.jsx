@@ -24,7 +24,7 @@ function formatElapsed(seconds) {
 }
 
 function PlannerPage() {
-  const { user, logout } = useAuth()
+  const { user, logout, realtimeError } = useAuth()
   const [vehiculos, setVehiculos] = useState([])
   const [vehiculoId, setVehiculoId] = useState('')
   const [planificacion, setPlanificacion] = useState(null)
@@ -86,11 +86,24 @@ useEffect(() => {
     }
   }
 
+  const refreshTrackingOnEvent = (event) => {
+    if (Number(event.detail?.vehiculoId) === Number(vehiculoId)) {
+      void refreshTracking()
+    }
+  }
+  window.addEventListener(
+    'routemind:location-updated',
+    refreshTrackingOnEvent,
+  )
   queueMicrotask(() => void refreshTracking())
   const timer = window.setInterval(() => void refreshTracking(), 10000)
   return () => {
     active = false
     window.clearInterval(timer)
+    window.removeEventListener(
+      'routemind:location-updated',
+      refreshTrackingOnEvent,
+    )
   }
 }, [vehiculoId])
 
@@ -245,6 +258,24 @@ const pedidosEnCamino = pedidosVehiculo.filter(
 
       setRecorridoSeleccionado(data)
       setCargandoDetalle(false)
+
+      const coordenadasGps = (data.ubicacionesGps || [])
+        .filter(
+          (ubicacion) =>
+            ubicacion.latitud != null &&
+            ubicacion.longitud != null &&
+            Number.isFinite(Number(ubicacion.latitud)) &&
+            Number.isFinite(Number(ubicacion.longitud)),
+        )
+        .map((ubicacion) => [
+          Number(ubicacion.latitud),
+          Number(ubicacion.longitud),
+        ])
+
+      if (coordenadasGps.length > 0) {
+        setRutaHistorica(coordenadasGps)
+        return
+      }
 
       const coordenadas = (data.pedidos || [])
         .filter(
@@ -412,6 +443,35 @@ const pedidosEnCamino = pedidosVehiculo.filter(
   }, [vehiculoId, cargarPedidosVehiculo, cargarHistorialRecorridos])
 
   useEffect(() => {
+    let refreshTimer
+    const refreshRoute = (event) => {
+      const changedVehicleId = event.detail?.vehiculoId
+      if (
+        changedVehicleId != null &&
+        Number(changedVehicleId) !== Number(vehiculoId)
+      ) {
+        return
+      }
+      window.clearTimeout(refreshTimer)
+      refreshTimer = window.setTimeout(() => void planificar(), 150)
+    }
+    const refreshAfterReconnect = () => {
+      window.clearTimeout(refreshTimer)
+      refreshTimer = window.setTimeout(() => void planificar(), 150)
+    }
+    window.addEventListener('routemind:route-updated', refreshRoute)
+    window.addEventListener('routemind:reconnected', refreshAfterReconnect)
+    return () => {
+      window.clearTimeout(refreshTimer)
+      window.removeEventListener('routemind:route-updated', refreshRoute)
+      window.removeEventListener(
+        'routemind:reconnected',
+        refreshAfterReconnect,
+      )
+    }
+  }, [planificar, vehiculoId])
+
+  useEffect(() => {
     if (vehiculoId) {
       queueMicrotask(() => {
         void planificar()
@@ -498,7 +558,6 @@ const iniciarRecorrido = async () => {
       )
     }
     await planificar()
-    await planificar()
 
     setAviso(
       data.mensaje || 'El recorrido se inició correctamente.',
@@ -563,6 +622,12 @@ const iniciarRecorrido = async () => {
               Organiza las entregas y visualiza el recorrido de cada vehículo.
             </p>
           </div>
+
+          {realtimeError && (
+            <div className="message error-message" role="status">
+              {realtimeError} Se seguirá actualizando al recalcular la ruta.
+            </div>
+          )}
 
           <button
             className="refresh-button"

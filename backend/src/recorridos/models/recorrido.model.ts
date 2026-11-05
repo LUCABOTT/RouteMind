@@ -42,6 +42,14 @@ export class Recorrido extends Model {
   declare pedidos?: Pedido[];
 
   @Column({
+    type: DataType.INTEGER,
+    field: 'tiempo_movimiento_segundos',
+    allowNull: false,
+    defaultValue: 0,
+  })
+  declare tiempoMovimientoSegundos: number;
+
+  @Column({
     type: DataType.DATE,
     field: 'fecha_inicio',
     allowNull: false,

@@ -621,6 +621,93 @@ select:disabled {
   min-height: 48px;
 }
 
+.driver-orders-map {
+  margin-top: 20px;
+  overflow: hidden;
+  border: 1px solid #e8e8ee;
+  border-radius: 12px;
+}
+
+.driver-orders-map-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.driver-orders-map-heading h4,
+.driver-orders-map-heading p {
+  margin: 0;
+}
+
+.driver-orders-map-heading p {
+  margin-top: 4px;
+  color: #747783;
+  font-size: 12px;
+}
+
+.driver-orders-map-heading > span {
+  flex-shrink: 0;
+  color: #397346;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.driver-orders-map-wrapper {
+  position: relative;
+  height: 340px;
+  background: #edf0eb;
+}
+
+.driver-orders-map-empty {
+  position: absolute;
+  z-index: 500;
+  top: 50%;
+  left: 50%;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  transform: translate(-50%, -50%);
+  padding: 12px 16px;
+  border: 1px solid #ececf1;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 8px 30px #00000012;
+  color: #5e6069;
+  font-size: 13px;
+  text-align: center;
+}
+
+.driver-orders-map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 12px 16px;
+  color: #5e6069;
+  font-size: 12px;
+}
+
+.driver-orders-map-legend span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.driver-orders-map-legend i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.driver-orders-map-legend .legend-stop {
+  background: #a1195c;
+}
+
+.driver-orders-map-legend .legend-completed {
+  background: #21804a;
+}
+
 .driver-stops {
   margin-top: 20px;
 }
@@ -1411,6 +1498,35 @@ select:disabled {
   overflow-wrap: anywhere;
   color: #2d2d2d;
   font-size: 0.95rem;
+}
+
+.history-detail-stops {
+  margin: 0 0 28px;
+}
+
+.history-detail-stops h4 {
+  margin: 0 0 14px;
+  color: #2d2d2d;
+}
+
+.history-stop-list {
+  display: grid;
+  gap: 10px;
+}
+
+.history-stop-card {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid #eee5ea;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.history-stop-card span,
+.history-stop-card small {
+  color: #6b6470;
+  overflow-wrap: anywhere;
 }
 
 .history-detail-orders h4 {
