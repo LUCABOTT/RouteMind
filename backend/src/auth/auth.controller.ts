@@ -45,6 +45,12 @@ export class AuthController {
     return { user: session.user };
   }
 
+  @Public()
+@Post('driver/login')
+async driverLogin(@Body() dto: AuthCredentialsDto) {
+  return this.authService.driverLogin(dto);
+}
+
   @Post('logout')
   logout(@Res({ passthrough: true }) response: Response) {
     response.clearCookie(TOKEN_COOKIE, this.cookieOptions());
@@ -72,4 +78,6 @@ export class AuthController {
       path: '/',
     };
   }
+
+  
 }

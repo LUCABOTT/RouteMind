@@ -8,10 +8,11 @@ import { RolesGuard } from './guards/roles.guard';
 import { User } from './models/user.model';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
+import { Conductor } from '../vehiculos/models/conductor.model';
 
 @Module({
   imports: [
-    SequelizeModule.forFeature([User]),
+    SequelizeModule.forFeature([User, Conductor]),
     JwtModule.register({
       secret: process.env.JWT_SECRET,
       signOptions: { expiresIn: '8h' },

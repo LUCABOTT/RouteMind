@@ -32,7 +32,11 @@ export class AuthGuard implements CanActivate {
     if (isPublic) return true;
 
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
-    const token = request.cookies?.routeMindToken;
+    const authorization = request.headers.authorization;
+
+    const bearerToken = authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
+
+    const token = bearerToken || request.cookies?.routeMindToken;
     if (!token) throw new UnauthorizedException('Inicia sesión para continuar');
 
     try {
