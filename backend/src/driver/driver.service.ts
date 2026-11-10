@@ -243,6 +243,8 @@ export class DriverService {
             'estado',
             'latitudActual',
             'longitudActual',
+            'gpsUpdatedAt',
+            'gpsAccuracyM',
           ],
         },
         {
