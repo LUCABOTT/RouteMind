@@ -1,3 +1,4 @@
+
 import {
   IonApp,
   IonContent,
@@ -11,6 +12,7 @@ import { Navigate, Route } from 'react-router-dom';
 
 import Login from './pages/Login/Login';
 import Dashboard from './pages/Dashboard/Dashboard';
+import Routes from './pages/Routes/Routes';
 
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './context/useAuth';
@@ -52,6 +54,15 @@ const AppRoutes: React.FC = () => {
         element={
           session
             ? <Dashboard />
+            : <Navigate to="/login" replace />
+        }
+      />
+
+      <Route
+        path="/routes"
+        element={
+          session
+            ? <Routes />
             : <Navigate to="/login" replace />
         }
       />

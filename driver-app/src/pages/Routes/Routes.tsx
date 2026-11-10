@@ -26,8 +26,9 @@ import {
 } from 'ionicons/icons';
 
 import { useAuth } from '../../context/useAuth';
-import { routeService } from '../../services/routes/route.service';
+import { routeService } from '../../Services/routes/route.service';
 import type { DriverRoute } from '../../interfaces/route.interface';
+import DriverNavigation from '../../components/layout/DriverNavigation';
 
 import './Routes.css';
 
@@ -295,6 +296,7 @@ const Routes = () => {
           )}
         </div>
       </IonContent>
+      <DriverNavigation />
     </IonPage>
   );
 };

@@ -32,6 +32,7 @@ import { driverService } from '../../Services/driver/driver.service';
 import type { DriverProfile } from '../../interfaces/driver.interface';
 
 import './Dashboard.css';
+import DriverNavigation from '../../components/layout/DriverNavigation';
 
 const Dashboard: React.FC = () => {
   const { session, logout } = useAuth();
@@ -270,6 +271,7 @@ const Dashboard: React.FC = () => {
         </IonButton>
 
       </IonContent>
+      <DriverNavigation />
     </IonPage>
   );
 };
