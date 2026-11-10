@@ -13,6 +13,7 @@ import { PedidosModule } from './pedidos/pedidos.module';
 import { VehiculosModule } from './vehiculos/vehiculos.module';
 import { RecorridosModule } from './recorridos/recorridos.module';
 import { SeguimientoModule } from './seguimiento/seguimiento.module';
+import { DriverModule } from './driver/driver.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { SeguimientoModule } from './seguimiento/seguimiento.module';
     VehiculosModule,
     RecorridosModule,
     SeguimientoModule,
+    DriverModule,
   ],
   controllers: [AppController],
   providers: [
