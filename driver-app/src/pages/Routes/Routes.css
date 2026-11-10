@@ -1,0 +1,226 @@
+
+.routes-content {
+  --background: #f4f6fa;
+}
+
+.routes-container {
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 20px 16px 40px;
+}
+
+.routes-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.routes-heading h1 {
+  margin: 0 0 6px;
+  color: #172033;
+  font-size: 25px;
+  font-weight: 750;
+}
+
+.routes-heading p {
+  margin: 0;
+  color: #697386;
+  font-size: 14px;
+}
+
+.routes-feedback {
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+}
+
+.routes-empty-card,
+.routes-error-card {
+  margin: 0;
+  border-radius: 16px;
+  text-align: center;
+}
+
+.routes-empty-card ion-card-content {
+  padding: 35px 20px;
+}
+
+.routes-empty-icon {
+  font-size: 48px;
+  color: #64748b;
+}
+
+.routes-empty-card h2 {
+  color: #172033;
+  font-size: 19px;
+  margin: 14px 0 8px;
+}
+
+.routes-empty-card p {
+  color: #697386;
+  font-size: 14px;
+}
+
+.routes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.routes-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  color: #697386;
+  font-size: 14px;
+}
+
+.routes-summary strong {
+  color: #172033;
+  font-size: 23px;
+}
+
+.route-card {
+  margin: 0;
+  border-radius: 16px;
+  box-shadow: 0 3px 14px rgb(15 23 42 / 5%);
+}
+
+.route-card-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.route-card-heading ion-card-title {
+  color: #172033;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.route-date {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #697386;
+  font-size: 12px;
+  margin: 8px 0 0;
+}
+
+.route-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  padding: 12px 0 18px;
+  border-bottom: 1px solid #edf0f4;
+}
+
+.route-info-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.route-info-item > ion-icon {
+  color: #4263eb;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.route-info-item div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.route-info-item span {
+  color: #7b8495;
+  font-size: 11px;
+}
+
+.route-info-item strong {
+  color: #172033;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.route-finish-date {
+  color: #697386;
+  font-size: 12px;
+  margin: 12px 0 0;
+}
+
+.route-deliveries {
+  padding-top: 18px;
+}
+
+.route-deliveries h3 {
+  color: #172033;
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0 0 12px;
+}
+
+.route-delivery {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 13px 0;
+  border-top: 1px solid #edf0f4;
+}
+
+.route-delivery-main {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.route-delivery-main strong {
+  color: #172033;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.route-delivery-main span {
+  color: #697386;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.route-no-deliveries {
+  color: #697386;
+  font-size: 13px;
+}
+
+@media (max-width: 480px) {
+  .routes-container {
+    padding: 16px 12px 32px;
+  }
+
+  .routes-heading {
+    align-items: flex-start;
+  }
+
+  .routes-heading h1 {
+    font-size: 21px;
+  }
+
+  .routes-heading > ion-button {
+    display: none;
+  }
+
+  .route-delivery {
+    flex-direction: column;
+  }
+}

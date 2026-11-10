@@ -1,0 +1,46 @@
+
+.driver-navigation {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+
+  min-height: 66px;
+  padding: 7px 12px calc(7px + env(safe-area-inset-bottom));
+
+  background: #ffffff;
+  border-top: 1px solid #e8edf3;
+  box-shadow: 0 -3px 12px rgb(15 23 42 / 5%);
+}
+
+.driver-navigation button {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+
+  border: none;
+  background: transparent;
+  color: #8a94a6;
+
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.driver-navigation button ion-icon {
+  font-size: 23px;
+}
+
+.driver-navigation button.active {
+  color: #3157d5;
+  font-weight: 700;
+}
