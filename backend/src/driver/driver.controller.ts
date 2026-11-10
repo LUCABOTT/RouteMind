@@ -1,8 +1,10 @@
+
 import {
   Controller,
   Get,
   Req,
-  UseGuards,
+  Param,
+  ParseIntPipe,
 } from '@nestjs/common';
 
 import { DriverService } from './driver.service';
@@ -18,6 +20,9 @@ export class DriverController {
     private readonly driverService: DriverService,
   ) {}
 
+  /**
+   * GET /api/driver/me
+   */
   @Get('me')
   obtenerMiPerfil(@Req() request: AuthenticatedRequest) {
     return this.driverService.obtenerMiPerfil(
@@ -26,6 +31,9 @@ export class DriverController {
     );
   }
 
+  /**
+   * GET /api/driver/routes/today
+   */
   @Get('routes/today')
   obtenerRecorridosDelDia(
     @Req() request: AuthenticatedRequest,
@@ -35,11 +43,28 @@ export class DriverController {
     );
   }
 
+  /**
+   * GET /api/driver/deliveries
+   */
   @Get('deliveries')
   obtenerEntregas(
     @Req() request: AuthenticatedRequest,
   ) {
     return this.driverService.obtenerEntregas(
+      request.user!.conductorId!,
+    );
+  }
+
+  /**
+   * GET /api/driver/deliveries/:id
+   */
+  @Get('deliveries/:id')
+  obtenerDetalleEntrega(
+    @Param('id', ParseIntPipe) pedidoId: number,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.driverService.obtenerDetalleEntrega(
+      pedidoId,
       request.user!.conductorId!,
     );
   }

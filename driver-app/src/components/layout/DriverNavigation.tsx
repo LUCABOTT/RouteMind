@@ -3,6 +3,7 @@ import { IonIcon } from '@ionic/react';
 import {
   homeOutline,
   mapOutline,
+  cubeOutline,
 } from 'ionicons/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -33,6 +34,16 @@ const DriverNavigation: React.FC = () => {
         <IonIcon icon={mapOutline} />
         <span>Recorridos</span>
       </button>
+
+      <button
+      className={currentPath === '/deliveries' ? 'active' : ''}
+      onClick={() => navigate('/deliveries')}
+      type="button"
+    >
+      <IonIcon icon={cubeOutline} />
+      <span>Entregas</span>
+    </button>
+
     </nav>
   );
 };

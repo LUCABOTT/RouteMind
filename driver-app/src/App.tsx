@@ -13,6 +13,8 @@ import { Navigate, Route } from 'react-router-dom';
 import Login from './pages/Login/Login';
 import Dashboard from './pages/Dashboard/Dashboard';
 import Routes from './pages/Routes/Routes';
+import Deliveries from './pages/Deliveries/Deliveries';
+import DeliveryDetail from './pages/DeliveryDetail/DeliveryDetail';
 
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './context/useAuth';
@@ -66,6 +68,24 @@ const AppRoutes: React.FC = () => {
             : <Navigate to="/login" replace />
         }
       />
+
+      <Route
+        path="/deliveries/:id"
+        element={
+          session
+            ? <DeliveryDetail />
+            : <Navigate to="/login" replace />
+        }
+      />
+
+              <Route
+          path="/deliveries"
+          element={
+            session
+              ? <Deliveries />
+              : <Navigate to="/login" replace />
+          }
+        />
 
       <Route
         path="/"

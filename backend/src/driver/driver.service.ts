@@ -212,4 +212,63 @@ export class DriverService {
 
     return pedidos;
   }
+
+
+  /**
+   * GET /api/driver/deliveries/:id
+   * Obtiene el detalle de un pedido perteneciente al conductor autenticado.
+   */
+  async obtenerDetalleEntrega(
+    pedidoId: number,
+    conductorId: number,
+  ) {
+    // Verificar que el conductor exista y esté activo.
+    await this.obtenerConductor(conductorId);
+
+    const pedido = await this.pedidoModel.findOne({
+      where: {
+        id: pedidoId,
+      },
+      include: [
+        {
+          model: Vehiculo,
+          as: 'vehiculo',
+          required: true,
+          where: {
+            conductorId,
+          },
+          attributes: [
+            'id',
+            'codigo',
+            'estado',
+            'latitudActual',
+            'longitudActual',
+          ],
+        },
+        {
+          model: Recorrido,
+          as: 'recorrido',
+          required: false,
+          attributes: [
+            'id',
+            'fechaInicio',
+            'fechaFin',
+            'estado',
+            'distanciaEstimadaKm',
+            'distanciaRealKm',
+          ],
+        },
+      ],
+    });
+
+    if (!pedido) {
+      throw new NotFoundException(
+        'No se encontró el pedido o no tienes permiso para consultarlo',
+      );
+    }
+
+    return pedido;
+  }
+
+
 }
