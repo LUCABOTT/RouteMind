@@ -21,6 +21,8 @@ export interface DriverDelivery {
   vehiculo?: {
     id: number;
     codigo: string;
+    latitudActual: number | null;
+    longitudActual: number | null;
   } | null;
 
   recorrido?: {

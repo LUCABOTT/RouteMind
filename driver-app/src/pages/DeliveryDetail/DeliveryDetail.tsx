@@ -25,6 +25,7 @@ import {
 
 import { useAuth } from '../../context/useAuth';
 import { deliveryService } from '../../Services/deliveries/delivery.service';
+import DeliveryMap from '../../components/delivery/DeliveryMap';
 
 import type {
   DriverDelivery,
@@ -120,6 +121,15 @@ const DeliveryDetail: React.FC = () => {
 
     return labels[status];
   };
+
+  const hasValidCoordinates =
+  delivery !== null &&
+  Number.isFinite(Number(delivery.latitud)) &&
+  Number.isFinite(Number(delivery.longitud)) &&
+  Number(delivery.latitud) >= -90 &&
+  Number(delivery.latitud) <= 90 &&
+  Number(delivery.longitud) >= -180 &&
+  Number(delivery.longitud) <= 180;
 
   const mapsUrl = delivery
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
@@ -232,6 +242,22 @@ const DeliveryDetail: React.FC = () => {
               <IonCard>
                 <IonCardContent>
                   <h2>Ubicación del destinatario</h2>
+
+                  {hasValidCoordinates ? (
+  <DeliveryMap
+    latitud={Number(delivery.latitud)}
+    longitud={Number(delivery.longitud)}
+    destinatario={delivery.destinatario}
+    direccion={delivery.direccion}
+    vehiculoLatitud={delivery.vehiculo?.latitudActual}
+    vehiculoLongitud={delivery.vehiculo?.longitudActual}
+    codigoVehiculo={delivery.vehiculo?.codigo}
+  />
+) : (
+  <IonText color="warning">
+    <p>No hay coordenadas válidas para mostrar el mapa.</p>
+  </IonText>
+)}
 
                   <p>
                     Latitud: {delivery.latitud}

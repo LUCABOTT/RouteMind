@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -269,6 +270,102 @@ export class DriverService {
 
     return pedido;
   }
+
+
+  /**
+ * POST /api/driver/vehicles/:vehicleId/location
+ * Actualiza la última posición GPS del vehículo.
+ */
+async actualizarUbicacion(
+  vehicleId: number,
+  conductorId: number,
+  body: {
+    latitud: number;
+    longitud: number;
+    accuracy?: number | null;
+  },
+) {
+  const { latitud, longitud, accuracy } = body;
+
+  // Validar latitud.
+  if (
+    typeof latitud !== 'number' ||
+    !Number.isFinite(latitud) ||
+    latitud < -90 ||
+    latitud > 90
+  ) {
+    throw new BadRequestException(
+      'La latitud no es válida',
+    );
+  }
+
+  // Validar longitud.
+  if (
+    typeof longitud !== 'number' ||
+    !Number.isFinite(longitud) ||
+    longitud < -180 ||
+    longitud > 180
+  ) {
+    throw new BadRequestException(
+      'La longitud no es válida',
+    );
+  }
+
+  // Validar precisión GPS, cuando se proporciona.
+  if (
+    accuracy !== undefined &&
+    accuracy !== null &&
+    (
+      typeof accuracy !== 'number' ||
+      !Number.isFinite(accuracy) ||
+      accuracy < 0
+    )
+  ) {
+    throw new BadRequestException(
+      'La precisión GPS no es válida',
+    );
+  }
+
+  // Verificar que el conductor exista y esté activo.
+  await this.obtenerConductor(conductorId);
+
+  // Buscar exclusivamente un vehículo de este conductor.
+  const vehiculo = await this.vehiculoModel.findOne({
+    where: {
+      id: vehicleId,
+      conductorId,
+    },
+  });
+
+  if (!vehiculo) {
+    throw new NotFoundException(
+      'No se encontró el vehículo o no pertenece a este conductor',
+    );
+  }
+
+  // Actualizar posición y fecha de registro.
+  await vehiculo.update({
+    latitudActual: latitud,
+    longitudActual: longitud,
+    gpsUpdatedAt: new Date(),
+    gpsAccuracyM:
+      accuracy === undefined
+        ? vehiculo.gpsAccuracyM
+        : accuracy,
+  });
+
+  return {
+    message: 'Ubicación GPS actualizada correctamente',
+    vehiculo: {
+      id: vehiculo.id,
+      codigo: vehiculo.codigo,
+      latitudActual: vehiculo.latitudActual,
+      longitudActual: vehiculo.longitudActual,
+      gpsUpdatedAt: vehiculo.gpsUpdatedAt,
+      gpsAccuracyM: vehiculo.gpsAccuracyM,
+    },
+  };
+}
 
 
 }

@@ -210,6 +210,11 @@
 
   .routes-heading {
     align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .routes-heading > div {
+    flex: 1 0 100%;
   }
 
   .routes-heading h1 {
@@ -217,10 +222,72 @@
   }
 
   .routes-heading > ion-button {
-    display: none;
+    flex: 0 1 auto;
   }
 
   .route-delivery {
     flex-direction: column;
   }
+
+  .route-gps-card {
+  margin: 16px 0;
+  border-left: 4px solid var(--ion-color-primary);
+}
+
+.route-gps-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.route-gps-header ion-icon {
+  font-size: 22px;
+  color: var(--ion-color-primary);
+}
+
+.route-gps-header ion-badge {
+  margin-left: auto;
+}
+
+
+.assigned-vehicles-section,
+.routes-history-section {
+  margin-bottom: 28px;
+}
+
+.routes-section-heading {
+  margin: 24px 0 16px;
+}
+
+.routes-section-heading h2 {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.routes-section-heading p {
+  color: var(--ion-color-medium);
+  margin-top: 0;
+  font-size: 14px;
+}
+
+.assigned-vehicle-card {
+  margin-bottom: 16px;
+}
+
+.assigned-vehicle-card ion-card-title ion-icon {
+  vertical-align: middle;
+}
+
+.start-route-button {
+  margin-top: 20px;
+  --border-radius: 10px;
+  font-weight: 600;
+}
+
+.assigned-vehicle-card ion-card-content > ion-badge {
+  margin-top: 12px;
+}
+
 }

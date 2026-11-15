@@ -15,6 +15,7 @@ import Dashboard from './pages/Dashboard/Dashboard';
 import Routes from './pages/Routes/Routes';
 import Deliveries from './pages/Deliveries/Deliveries';
 import DeliveryDetail from './pages/DeliveryDetail/DeliveryDetail';
+import DriverMap from './pages/DriverMap/DriverMap';
 
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './context/useAuth';
@@ -77,6 +78,15 @@ const AppRoutes: React.FC = () => {
             : <Navigate to="/login" replace />
         }
       />
+
+      <Route
+  path="/driver/map"
+  element={
+    session
+      ? <DriverMap />
+      : <Navigate to="/login" replace />
+  }
+/>
 
               <Route
           path="/deliveries"
