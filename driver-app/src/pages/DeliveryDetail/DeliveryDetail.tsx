@@ -25,6 +25,7 @@ import {
 
 import { useAuth } from '../../context/useAuth';
 import { deliveryService } from '../../Services/deliveries/delivery.service';
+import DeliveryMap from '../../components/delivery/DeliveryMap';
 
 import type {
   DriverDelivery,
@@ -188,6 +189,15 @@ const DeliveryDetail: React.FC = () => {
     return labels[status];
   };
 
+  const hasValidCoordinates =
+  delivery !== null &&
+  Number.isFinite(Number(delivery.latitud)) &&
+  Number.isFinite(Number(delivery.longitud)) &&
+  Number(delivery.latitud) >= -90 &&
+  Number(delivery.latitud) <= 90 &&
+  Number(delivery.longitud) >= -180 &&
+  Number(delivery.longitud) <= 180;
+
   const mapsUrl = delivery
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
         `${delivery.latitud},${delivery.longitud}`,
@@ -304,57 +314,27 @@ const DeliveryDetail: React.FC = () => {
                 <IonCardContent>
                   <h2>Ubicación del destinatario</h2>
 
-                  {delivery.vehiculo?.latitudActual != null &&
- delivery.vehiculo?.longitudActual != null && (
-  <div className="vehicle-gps-info">
-    <strong>Última posición del vehículo</strong>
-    <IonBadge color={gpsStatus.color}>
-  {gpsStatus.label}
-</IonBadge>
-
-<p>{gpsStatus.age}</p>
-
-    <p>
-      Vehículo: {delivery.vehiculo.codigo}
-    </p>
-
-    <p>
-      Coordenadas: {delivery.vehiculo.latitudActual},
-      {' '}{delivery.vehiculo.longitudActual}
-    </p>
-
-    <p>
-      Actualización GPS:{' '}
-      {delivery.vehiculo.gpsUpdatedAt
-        ? new Date(delivery.vehiculo.gpsUpdatedAt).toLocaleString('es-HN')
-        : 'Fecha no disponible'}
-    </p>
-
-    <p>
-      Precisión GPS:{' '}
-      {delivery.vehiculo.gpsAccuracyM != null
-        ? `${delivery.vehiculo.gpsAccuracyM} metros`
-        : 'No disponible'}
-    </p>
-  </div>
+                  {hasValidCoordinates ? (
+  <DeliveryMap
+    latitud={Number(delivery.latitud)}
+    longitud={Number(delivery.longitud)}
+    destinatario={delivery.destinatario}
+    direccion={delivery.direccion}
+    vehiculoLatitud={delivery.vehiculo?.latitudActual}
+    vehiculoLongitud={delivery.vehiculo?.longitudActual}
+    codigoVehiculo={delivery.vehiculo?.codigo}
+  />
+) : (
+  <IonText color="warning">
+    <p>No hay coordenadas válidas para mostrar el mapa.</p>
+  </IonText>
 )}
 
-                  {Number.isFinite(Number(delivery.latitud)) &&
-                    Number.isFinite(Number(delivery.longitud)) &&
-                    Number(delivery.latitud) >= -90 &&
-                    Number(delivery.latitud) <= 90 &&
-                    Number(delivery.longitud) >= -180 &&
-                    Number(delivery.longitud) <= 180 && (
-                    <DeliveryMap
-                        latitud={Number(delivery.latitud)}
-                        longitud={Number(delivery.longitud)}
-                        destinatario={delivery.destinatario}
-                        direccion={delivery.direccion}
-                        vehiculoLatitud={delivery.vehiculo?.latitudActual}
-                        vehiculoLongitud={delivery.vehiculo?.longitudActual}
-                        codigoVehiculo={delivery.vehiculo?.codigo}
-                    />
-                    )}
+                  <p>
+                    Latitud: {delivery.latitud}
+                    <br />
+                    Longitud: {delivery.longitud}
+                  </p>
 
                   <IonButton
                     expand="block"

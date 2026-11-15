@@ -6,6 +6,7 @@ import { Pedido } from './models/pedido.model';
 import { PedidosCrudService } from './services/pedidos-crud.service';
 import { PedidosRecorridosService } from './services/pedidos-recorridos.service';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
+import { Transaction } from 'sequelize';
 
 @Injectable()
 export class PedidosService {
@@ -42,19 +43,27 @@ export class PedidosService {
   }
 
   async iniciarRecorrido(
-    vehiculoId: number,
-    distanciaEstimadaKm?: number | null,
-  ) {
-    const recorrido = await this.pedidosRecorridosService.iniciarRecorrido(
-      vehiculoId,
-      distanciaEstimadaKm,
-    );
+  vehiculoId: number,
+  distanciaEstimadaKm?: number | null,
+  transaction?: Transaction,
+) {
+  const recorrido = await this.pedidosRecorridosService.iniciarRecorrido(
+    vehiculoId,
+    distanciaEstimadaKm,
+    transaction,
+  );
+
+  // Si otra operación controla la transacción,
+  // esa operación publicará los eventos después del COMMIT.
+  if (!transaction) {
     this.realtimeGateway.publishRouteUpdated({
       vehiculoId,
       recorridoId: recorrido.recorridoId,
     });
-    return recorrido;
   }
+
+  return recorrido;
+}
 
   async eliminar(id: number): Promise<{ mensaje: string }> {
     const pedido = await this.pedidosCrudService.buscarPorId(id);

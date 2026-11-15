@@ -10,6 +10,7 @@ import { Pedido } from '../models/pedido.model';
 import { Recorrido } from '../../recorridos/models/recorrido.model';
 import { Conductor } from '../../vehiculos/models/conductor.model';
 import { Vehiculo } from '../../vehiculos/models/vehiculo.model';
+import { Transaction } from 'sequelize';
 
 @Injectable()
 export class PedidosRecorridosService {
@@ -120,14 +121,15 @@ export class PedidosRecorridosService {
     });
   }
 
+  
   async iniciarRecorrido(
     vehiculoId: number,
     distanciaEstimadaKm?: number | null,
+    transaction?: Transaction,
   ) {
     if (
       distanciaEstimadaKm != null &&
-      (typeof distanciaEstimadaKm !== 'number' ||
-        !Number.isFinite(distanciaEstimadaKm) ||
+      (!Number.isFinite(distanciaEstimadaKm) ||
         distanciaEstimadaKm < 0)
     ) {
       throw new BadRequestException(
@@ -135,95 +137,117 @@ export class PedidosRecorridosService {
       );
     }
 
-    return this.sequelize.transaction(async (transaction) => {
-      const vehiculo = await this.vehiculoModel.findByPk(vehiculoId, {
+    if (transaction) {
+      return this.crearRecorrido(
+        vehiculoId,
+        distanciaEstimadaKm,
         transaction,
-        lock: transaction.LOCK.UPDATE,
-      });
-
-      if (!vehiculo) {
-        throw new NotFoundException(
-          `No existe un vehículo con el ID ${vehiculoId}`,
-        );
-      }
-
-      const recorridoActivo = await this.recorridoModel.findOne({
-        where: {
-          vehiculoId: vehiculo.id,
-          estado: 'EN_CURSO',
-        },
-        transaction,
-      });
-
-      if (recorridoActivo) {
-        throw new ConflictException(
-          'El vehículo ya tiene un recorrido en curso',
-        );
-      }
-
-      if (vehiculo.estado !== 'DISPONIBLE') {
-        throw new ConflictException(
-          'El vehículo debe estar disponible para iniciar un recorrido',
-        );
-      }
-
-      const pedidosAsignados = await this.pedidoModel.findAll({
-        where: {
-          vehiculoId: vehiculo.id,
-          estado: 'ASIGNADO',
-        },
-        transaction,
-        lock: transaction.LOCK.UPDATE,
-      });
-
-      if (pedidosAsignados.length === 0) {
-        throw new ConflictException(
-          'No hay pedidos asignados para iniciar el recorrido',
-        );
-      }
-
-      const recorrido = await this.recorridoModel.create(
-        {
-          vehiculoId: vehiculo.id,
-          fechaInicio: new Date(),
-          fechaFin: null,
-          distanciaTotalKm: distanciaEstimadaKm ?? 0,
-          distanciaEstimadaKm: distanciaEstimadaKm ?? null,
-          distanciaRealKm: null,
-          totalPedidos: pedidosAsignados.length,
-          estado: 'EN_CURSO',
-        },
-        { transaction },
       );
+    }
 
-      for (const pedido of pedidosAsignados) {
-        await pedido.update(
-          {
-            estado: 'EN_CAMINO',
-            recorridoId: recorrido.id,
-          },
-          { transaction },
-        );
-      }
-
-      await vehiculo.update(
-        { estado: 'EN_RUTA' },
-        { transaction },
+    return this.sequelize.transaction(async (tx) => {
+      return this.crearRecorrido(
+        vehiculoId,
+        distanciaEstimadaKm,
+        tx,
       );
+    });
+  }
 
-      return {
-        mensaje: 'Recorrido iniciado correctamente',
-        recorridoId: recorrido.id,
+  private async crearRecorrido(
+    vehiculoId: number,
+    distanciaEstimadaKm: number | null | undefined,
+    transaction: Transaction,
+  ) {
+    const vehiculo = await this.vehiculoModel.findByPk(vehiculoId, {
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!vehiculo) {
+      throw new NotFoundException(
+        `No existe un vehículo con el ID ${vehiculoId}`,
+      );
+    }
+
+    const recorridoActivo = await this.recorridoModel.findOne({
+      where: {
         vehiculoId: vehiculo.id,
-        codigoVehiculo: vehiculo.codigo,
-        pedidosIniciados: pedidosAsignados.length,
+        estado: 'EN_CURSO',
+      },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (recorridoActivo) {
+      throw new ConflictException(
+        'El vehículo ya tiene un recorrido en curso',
+      );
+    }
+
+    if (vehiculo.estado !== 'DISPONIBLE') {
+      throw new ConflictException(
+        'El vehículo debe estar disponible para iniciar un recorrido',
+      );
+    }
+
+    const pedidosAsignados = await this.pedidoModel.findAll({
+      where: {
+        vehiculoId: vehiculo.id,
+        estado: 'ASIGNADO',
+      },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (pedidosAsignados.length === 0) {
+      throw new ConflictException(
+        'No hay pedidos asignados para iniciar el recorrido',
+      );
+    }
+
+    const recorrido = await this.recorridoModel.create(
+      {
+        vehiculoId: vehiculo.id,
+        fechaInicio: new Date(),
+        fechaFin: null,
         distanciaTotalKm: distanciaEstimadaKm ?? 0,
         distanciaEstimadaKm: distanciaEstimadaKm ?? null,
         distanciaRealKm: null,
-        pedidos: pedidosAsignados,
-      };
-    });
+        totalPedidos: pedidosAsignados.length,
+        estado: 'EN_CURSO',
+      },
+      { transaction },
+    );
+
+    for (const pedido of pedidosAsignados) {
+      await pedido.update(
+        {
+          estado: 'EN_CAMINO',
+          recorridoId: recorrido.id,
+        },
+        { transaction },
+      );
+    }
+
+    await vehiculo.update(
+      { estado: 'EN_RUTA' },
+      { transaction },
+    );
+
+    return {
+      mensaje: 'Recorrido iniciado correctamente',
+      recorridoId: recorrido.id,
+      vehiculoId: vehiculo.id,
+      codigoVehiculo: vehiculo.codigo,
+      pedidosIniciados: pedidosAsignados.length,
+      distanciaTotalKm: distanciaEstimadaKm ?? 0,
+      distanciaEstimadaKm: distanciaEstimadaKm ?? null,
+      distanciaRealKm: null,
+      pedidos: pedidosAsignados,
+    };
   }
+
 
   async planificarRuta(vehiculoId: number) {
     const vehiculo = await this.vehiculoModel.findByPk(vehiculoId, {

@@ -5,6 +5,8 @@ import {
   Req,
   Param,
   ParseIntPipe,
+  Post,
+  Body,
 } from '@nestjs/common';
 
 import { DriverService } from './driver.service';
@@ -68,4 +70,27 @@ export class DriverController {
       request.user!.conductorId!,
     );
   }
+
+  /**
+ * POST /api/driver/vehicles/:vehicleId/location
+ * Actualiza la posición GPS del vehículo del conductor autenticado.
+ */
+@Post('vehicles/:vehicleId/location')
+actualizarUbicacion(
+  @Param('vehicleId', ParseIntPipe) vehicleId: number,
+  @Body()
+  body: {
+    latitud: number;
+    longitud: number;
+    accuracy?: number | null;
+  },
+  @Req() request: AuthenticatedRequest,
+) {
+  return this.driverService.actualizarUbicacion(
+    vehicleId,
+    request.user!.conductorId!,
+    body,
+  );
+}
+
 }

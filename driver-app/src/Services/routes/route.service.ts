@@ -1,5 +1,8 @@
 import { apiRequest } from '../api/api';
-import type { DriverRoute } from '../../interfaces/route.interface';
+import type {
+  DriverRoute,
+  DriverAssignedVehicle,
+} from '../../interfaces/route.interface';
 
 export const routeService = {
   async getTodayRoutes(token: string): Promise<DriverRoute[]> {
@@ -7,5 +10,17 @@ export const routeService = {
       method: 'GET',
       token,
     });
+  },
+
+  async getMyVehicles(
+    token: string,
+  ): Promise<DriverAssignedVehicle[]> {
+    return apiRequest<DriverAssignedVehicle[]>(
+      '/seguimiento/mis-vehiculos',
+      {
+        method: 'GET',
+        token,
+      },
+    );
   },
 };

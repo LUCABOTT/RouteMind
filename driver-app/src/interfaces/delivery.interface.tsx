@@ -21,11 +21,8 @@ export interface DriverDelivery {
   vehiculo?: {
     id: number;
     codigo: string;
-    estado: 'DISPONIBLE' | 'EN_RUTA' | 'MANTENIMIENTO';
     latitudActual: number | null;
     longitudActual: number | null;
-    gpsUpdatedAt: string | null;
-    gpsAccuracyM: number | null;
   } | null;
 
   recorrido?: {

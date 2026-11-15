@@ -76,37 +76,92 @@ export class SeguimientoService {
           : [];
 
         return {
-          id: vehicle.id,
-          codigo: vehicle.codigo,
-          estado: vehicle.estado,
-          recorridoId: recorrido?.id ?? null,
-          recorridoEstado: recorrido?.estado ?? null,
-          pedidos: pedidos.map((pedido) => this.serializarPedido(pedido)),
-          paradas,
-        };
+  id: vehicle.id,
+  codigo: vehicle.codigo,
+  estado: vehicle.estado,
+
+  // Última ubicación GPS registrada
+  latitud: vehicle.latitudActual != null
+    ? Number(vehicle.latitudActual)
+    : null,
+
+  longitud: vehicle.longitudActual != null
+    ? Number(vehicle.longitudActual)
+    : null,
+
+  gpsActualizadoEn: vehicle.gpsUpdatedAt ?? null,
+
+  gpsPrecisionM: vehicle.gpsAccuracyM != null
+    ? Number(vehicle.gpsAccuracyM)
+    : null,
+
+  recorridoId: recorrido?.id ?? null,
+  recorridoEstado: recorrido?.estado ?? null,
+
+  pedidos: pedidos.map((pedido) => this.serializarPedido(pedido)),
+  paradas,
+};
       }),
     );
   }
 
   async iniciarRecorrido(userId: number, location: UbicacionDto) {
-    const vehicle = await this.vehiculoAsignado(userId, location.vehiculoId);
+  const result = await this.sequelize.transaction(async (transaction) => {
+    const vehicle = await this.vehiculoAsignado(
+      userId,
+      location.vehiculoId,
+      transaction,
+    );
+
     const registradoEn = new Date();
-    await this.guardarUbicacion(vehicle, location, undefined, registradoEn);
-    const result = await this.pedidosService.iniciarRecorrido(vehicle.id);
-    await this.ubicacionModel.create({
-      recorridoId: result.recorridoId,
-      latitud: location.latitud,
-      longitud: location.longitud,
-      precisionM: location.accuracy ?? null,
+
+    // Crear recorrido y actualizar pedidos usando la misma transacción.
+    const recorrido = await this.pedidosService.iniciarRecorrido(
+      vehicle.id,
+      undefined,
+      transaction,
+    );
+
+    // Actualizar ubicación actual del vehículo.
+    await this.guardarUbicacion(
+      vehicle,
+      location,
+      transaction,
       registradoEn,
-    });
-    this.realtimeGateway.publishLocationUpdated({
-      vehiculoId: vehicle.id,
-      recorridoId: result.recorridoId,
+    );
+
+    // Guardar primera coordenada del historial GPS.
+    await this.ubicacionModel.create(
+      {
+        recorridoId: recorrido.recorridoId,
+        latitud: location.latitud,
+        longitud: location.longitud,
+        precisionM: location.accuracy ?? null,
+        registradoEn,
+      },
+      { transaction },
+    );
+
+    return {
+      ...recorrido,
       registradoEn,
-    });
-    return result;
-  }
+    };
+  });
+
+  // Los eventos se publican solamente después del COMMIT.
+  this.realtimeGateway.publishRouteUpdated({
+    vehiculoId: result.vehiculoId,
+    recorridoId: result.recorridoId,
+  });
+
+  this.realtimeGateway.publishLocationUpdated({
+    vehiculoId: result.vehiculoId,
+    recorridoId: result.recorridoId,
+    registradoEn: result.registradoEn,
+  });
+
+  return result;
+}
 
   async registrarUbicacion(userId: number, location: UbicacionDto) {
     const result = await this.sequelize.transaction(async (transaction) => {
@@ -132,6 +187,19 @@ export class SeguimientoService {
         order: [['registradoEn', 'DESC']],
         transaction,
       });
+
+      // Contar las ubicaciones GPS válidas registradas antes de esta actualización.
+const ubicacionesPrevias = await this.ubicacionModel.count({
+  where: {
+    recorridoId: recorrido.id,
+    [Op.or]: [
+      { precisionM: null },
+      { precisionM: { [Op.lte]: 100 } },
+    ],
+  },
+  transaction,
+});
+
       await this.ubicacionModel.create(
         {
           recorridoId: recorrido.id,
@@ -150,13 +218,18 @@ export class SeguimientoService {
         registradoEn,
         transaction,
       );
-      await this.actualizarParadaActual(
-        recorrido.id,
-        location,
-        registradoEn,
-        previousPosition,
-        transaction,
-      );
+     // Evitar detectar paradas durante las primeras ubicaciones del recorrido.
+      // La primera ubicación es únicamente el punto de referencia GPS.
+      // La primera actualización posterior tampoco debe iniciar una parada.
+      if (ubicacionesPrevias >= 2) {
+        await this.actualizarParadaActual(
+          recorrido.id,
+          location,
+          registradoEn,
+          previousPosition,
+          transaction,
+        );
+      }
       return {
         recibido: true,
         registradoEn,
