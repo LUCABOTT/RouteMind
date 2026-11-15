@@ -31,8 +31,74 @@ import type {
   DriverDelivery,
   DeliveryStatus,
 } from '../../interfaces/delivery.interface';
+import DeliveryMap from '../../components/delivery/DeliveryMap';
 
 import './DeliveryDetail.css';
+
+
+const GPS_STALE_AFTER_MS = 5 * 60 * 1000;
+
+const getGpsStatus = (updatedAt?: string | null): {
+  label: string;
+  age: string;
+  color: 'success' | 'warning' | 'medium';
+} => {
+  if (!updatedAt) {
+    return {
+      label: 'Fecha no disponible',
+      age: 'No se conoce cuándo se registró esta posición.',
+      color: 'medium',
+    };
+  }
+
+  const timestamp = new Date(updatedAt).getTime();
+
+  if (!Number.isFinite(timestamp)) {
+    return {
+      label: 'Fecha no válida',
+      age: 'No se pudo interpretar la fecha GPS.',
+      color: 'medium',
+    };
+  }
+
+  const difference = Date.now() - timestamp;
+
+  if (difference < -60_000) {
+    return {
+      label: 'Fecha futura',
+      age: 'La fecha GPS es posterior a la hora del dispositivo.',
+      color: 'medium',
+    };
+  }
+
+  const minutes = Math.floor(Math.max(0, difference) / 60_000);
+  let age: string;
+
+  if (minutes < 1) {
+    age = 'Hace menos de un minuto';
+  } else if (minutes < 60) {
+    age = `Hace ${minutes} minuto${minutes === 1 ? '' : 's'}`;
+  } else {
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+
+    if (hours < 24) {
+      age = `Hace ${hours} h ${remainingMinutes} min`;
+    } else {
+      const days = Math.floor(hours / 24);
+      age = `Hace ${days} día${days === 1 ? '' : 's'}`;
+    }
+  }
+
+  const isStale = difference > GPS_STALE_AFTER_MS;
+
+  return {
+    label: isStale ? 'Ubicación desactualizada' : 'Ubicación reciente',
+    age,
+    color: isStale ? 'warning' : 'success',
+  };
+};
+
 
 const DeliveryDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -69,6 +135,7 @@ const DeliveryDetail: React.FC = () => {
           deliveryId,
           session.token,
         );
+        
 
         if (active) {
           setDelivery(data);
@@ -136,6 +203,10 @@ const DeliveryDetail: React.FC = () => {
         `${delivery.latitud},${delivery.longitud}`,
       )}`
     : '';
+
+    const gpsStatus = getGpsStatus(
+  delivery?.vehiculo?.gpsUpdatedAt,
+);
 
   return (
     <IonPage>

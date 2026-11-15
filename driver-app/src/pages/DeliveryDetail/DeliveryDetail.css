@@ -89,3 +89,21 @@
   padding: 60px 20px;
   color: var(--ion-color-medium);
 }
+
+.vehicle-gps-info {
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: 10px;
+  background: #eaf7ef;
+  color: #166534;
+  font-size: 13px;
+}
+
+.vehicle-gps-info strong {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.vehicle-gps-info p {
+  margin: 5px 0;
+}
