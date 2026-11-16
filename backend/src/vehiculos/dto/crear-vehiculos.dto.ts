@@ -5,6 +5,7 @@ import {
   MaxLength,
   IsInt,
   Min,
+  IsOptional,
 } from 'class-validator';
 
 export class CrearVehiculoDto {
@@ -13,10 +14,10 @@ export class CrearVehiculoDto {
   @MaxLength(20)
   codigo: string;
 
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(100)
-  conductor: string;
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  conductorId?: number | null;
 
   @IsInt()
   @Min(1)

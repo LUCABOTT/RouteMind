@@ -1,139 +1,92 @@
-
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-  ConflictException,
-} from '@nestjs/common';
-import { InjectModel } from '@nestjs/sequelize';
-import { Pedido } from './models/pedido.model';
-import { CrearPedidoDto } from './dto/crear-pedidos.dto';
-import { ActualizarPedidoDto } from './dto/actualizar-pedido.dto';
-import { Vehiculo } from '../vehiculos/models/vehiculo.model';
+import { Injectable } from '@nestjs/common';
 import { AsignarPedidoDto } from './dto/asignar-pedido.dto';
+import { ActualizarPedidoDto } from './dto/actualizar-pedido.dto';
+import { CrearPedidoDto } from './dto/crear-pedidos.dto';
+import { Pedido } from './models/pedido.model';
+import { PedidosCrudService } from './services/pedidos-crud.service';
+import { PedidosRecorridosService } from './services/pedidos-recorridos.service';
+import { RealtimeGateway } from '../realtime/realtime.gateway';
+import { Transaction } from 'sequelize';
 
 @Injectable()
 export class PedidosService {
   constructor(
-    @InjectModel(Pedido)
-    private readonly pedidoModel: typeof Pedido,
-
-    @InjectModel(Vehiculo)
-private readonly vehiculoModel: typeof Vehiculo,
+    private readonly pedidosCrudService: PedidosCrudService,
+    private readonly pedidosRecorridosService: PedidosRecorridosService,
+    private readonly realtimeGateway: RealtimeGateway,
   ) {}
 
   async crear(dto: CrearPedidoDto): Promise<Pedido> {
-    return this.pedidoModel.create({
-      destinatario: dto.destinatario,
-      direccion: dto.direccion,
-      latitud: dto.latitud,
-      longitud: dto.longitud,
-      prioridad: dto.prioridad ?? 'MEDIA',
-      estado: 'PENDIENTE',
-      observaciones: dto.observaciones ?? null,
-    });
-  }
-
-  async listar(): Promise<Pedido[]> {
-    return this.pedidoModel.findAll({
-      order: [['createdAt', 'DESC']],
-    });
-  }
-
-  async buscarPorId(id: number): Promise<Pedido> {
-    const pedido = await this.pedidoModel.findByPk(id);
-
-    if (!pedido) {
-      throw new NotFoundException(
-        `No existe un pedido con el ID ${id}`,
-      );
-    }
-
+    const pedido = await this.pedidosCrudService.crear(dto);
+    this.publicarCambioPedido(pedido);
     return pedido;
   }
 
-  
-async actualizar(
-  id: number,
-  dto: ActualizarPedidoDto,
-): Promise<Pedido> {
-  const pedido = await this.buscarPorId(id);
-
-  if (pedido.estado === 'ENTREGADO') {
-    throw new NotFoundException(
-      'No se puede modificar un pedido ya entregado',
-    );
+  listar(): Promise<Pedido[]> {
+    return this.pedidosCrudService.listar();
   }
 
-  await pedido.update(dto);
-
-  return pedido;
-}
-
-async eliminar(id: number): Promise<{ mensaje: string }> {
-  const pedido = await this.buscarPorId(id);
-
-  if (pedido.estado === 'EN_CAMINO' ||
-      pedido.estado === 'ENTREGADO') {
-    throw new NotFoundException(
-      'No se puede eliminar un pedido en camino o ya entregado',
-    );
+  buscarPorId(id: number): Promise<Pedido> {
+    return this.pedidosCrudService.buscarPorId(id);
   }
 
-  await pedido.destroy();
-
-  return { mensaje: 'Pedido eliminado correctamente' };
-}
-
-
-
-async asignar(
-  id: number,
-  dto: AsignarPedidoDto,
-): Promise<Pedido> {
-  const pedido = await this.buscarPorId(id);
-
-  if (pedido.estado !== 'PENDIENTE') {
-    throw new ConflictException(
-      'Solo se pueden asignar pedidos pendientes',
-    );
+  async actualizar(id: number, dto: ActualizarPedidoDto): Promise<Pedido> {
+    const pedido = await this.pedidosCrudService.actualizar(id, dto);
+    this.publicarCambioPedido(pedido);
+    return pedido;
   }
 
-  const vehiculo = await this.vehiculoModel.findByPk(
-    dto.vehiculoId,
+  async marcarEntregado(id: number): Promise<Pedido> {
+    const pedido = await this.pedidosRecorridosService.marcarEntregado(id);
+    this.publicarCambioPedido(pedido);
+    return pedido;
+  }
+
+  async iniciarRecorrido(
+  vehiculoId: number,
+  distanciaEstimadaKm?: number | null,
+  transaction?: Transaction,
+) {
+  const recorrido = await this.pedidosRecorridosService.iniciarRecorrido(
+    vehiculoId,
+    distanciaEstimadaKm,
+    transaction,
   );
 
-  if (!vehiculo) {
-    throw new NotFoundException(
-      'No existe el vehículo indicado',
-    );
+  // Si otra operación controla la transacción,
+  // esa operación publicará los eventos después del COMMIT.
+  if (!transaction) {
+    this.realtimeGateway.publishRouteUpdated({
+      vehiculoId,
+      recorridoId: recorrido.recorridoId,
+    });
   }
 
-  if (vehiculo.estado !== 'DISPONIBLE') {
-    throw new ConflictException(
-      'El vehículo no está disponible para planificar una ruta',
-    );
-  }
-
-  const pedidosAsignados = await this.pedidoModel.count({
-    where: {
-      vehiculoId: vehiculo.id,
-      estado: 'ASIGNADO',
-    },
-  });
-
-  if (pedidosAsignados >= vehiculo.capacidad) {
-    throw new BadRequestException(
-      'El vehículo no tiene capacidad disponible',
-    );
-  }
-
-  await pedido.update({
-    vehiculoId: vehiculo.id,
-    estado: 'ASIGNADO',
-  });
-
-  return pedido;
+  return recorrido;
 }
 
+  async eliminar(id: number): Promise<{ mensaje: string }> {
+    const pedido = await this.pedidosCrudService.buscarPorId(id);
+    const result = await this.pedidosCrudService.eliminar(id);
+    this.publicarCambioPedido(pedido);
+    return result;
+  }
+
+  async asignar(id: number, dto: AsignarPedidoDto): Promise<Pedido> {
+    const pedido = await this.pedidosCrudService.asignar(id, dto);
+    this.publicarCambioPedido(pedido);
+    return pedido;
+  }
+
+  planificarRuta(vehiculoId: number) {
+    return this.pedidosRecorridosService.planificarRuta(vehiculoId);
+  }
+
+  private publicarCambioPedido(pedido: Pedido): void {
+    this.realtimeGateway.publishRouteUpdated({
+      vehiculoId: pedido.vehiculoId,
+      recorridoId: pedido.recorridoId,
+      pedidoId: pedido.id,
+    });
+  }
 }

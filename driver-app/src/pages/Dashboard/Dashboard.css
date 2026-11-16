@@ -1,0 +1,164 @@
+
+.dashboard-content {
+  --background: #f5f7fb;
+}
+
+.dashboard-welcome {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 24px 20px;
+  margin-bottom: 20px;
+  background: linear-gradient(135deg, #173b69, #2563a6);
+  border-radius: 18px;
+  color: white;
+}
+
+.dashboard-welcome h1 {
+  font-size: 25px;
+  font-weight: 700;
+  margin: 8px 0;
+}
+
+.dashboard-welcome p {
+  margin: 0;
+  color: #dce9f8;
+  font-size: 14px;
+}
+
+.dashboard-eyebrow {
+  font-size: 11px !important;
+  letter-spacing: 1.5px;
+  font-weight: 700;
+}
+
+.dashboard-avatar {
+  width: 58px;
+  height: 58px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.dashboard-avatar ion-icon {
+  font-size: 42px;
+  color: white;
+}
+
+.dashboard-card {
+  margin: 0 0 18px;
+  border-radius: 15px;
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.045);
+}
+
+.dashboard-card ion-card-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.dashboard-card ion-card-title ion-icon {
+  font-size: 21px;
+  color: #2563a6;
+}
+
+.dashboard-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #edf0f4;
+}
+
+.dashboard-info-row:last-child {
+  border-bottom: none;
+}
+
+.dashboard-info-row span {
+  color: #718096;
+  font-size: 13px;
+}
+
+.dashboard-info-row strong {
+  color: #263445;
+  font-size: 13px;
+  text-align: right;
+  overflow-wrap: anywhere;
+  max-width: 60%;
+}
+
+.dashboard-section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 24px 4px 14px;
+}
+
+.dashboard-section-heading h2 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+  color: #263445;
+}
+
+.dashboard-section-heading span {
+  font-size: 12px;
+  color: #718096;
+}
+
+.dashboard-location {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 12px;
+  color: #2563a6;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.dashboard-location ion-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.dashboard-empty {
+  text-align: center;
+  padding: 20px 10px;
+  color: #718096;
+}
+
+.dashboard-empty ion-icon {
+  font-size: 38px;
+  color: #9aa9bb;
+}
+
+.dashboard-loading,
+.dashboard-error {
+  text-align: center;
+  padding: 55px 15px;
+}
+
+.dashboard-loading ion-spinner {
+  width: 40px;
+  height: 40px;
+}
+
+.dashboard-error h2 {
+  font-size: 19px;
+}
+
+.dashboard-error p {
+  font-size: 14px;
+}
+
+.dashboard-logout {
+  margin-top: 25px;
+  margin-bottom: 20px;
+}
