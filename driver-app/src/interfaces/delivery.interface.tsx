@@ -23,6 +23,7 @@ export interface DriverDelivery {
     codigo: string;
     latitudActual: number | null;
     longitudActual: number | null;
+    gpsUpdatedAt: string | null;
   } | null;
 
   recorrido?: {

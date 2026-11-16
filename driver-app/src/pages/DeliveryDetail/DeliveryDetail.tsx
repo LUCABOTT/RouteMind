@@ -31,7 +31,6 @@ import type {
   DriverDelivery,
   DeliveryStatus,
 } from '../../interfaces/delivery.interface';
-import DeliveryMap from '../../components/delivery/DeliveryMap';
 
 import './DeliveryDetail.css';
 
