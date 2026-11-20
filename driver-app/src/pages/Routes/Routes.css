@@ -198,6 +198,17 @@
   overflow-wrap: anywhere;
 }
 
+.route-delivery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.route-delivery-warning {
+  color: var(--ion-color-danger);
+  font-size: 12px;
+}
+
 .route-no-deliveries {
   color: #697386;
   font-size: 13px;

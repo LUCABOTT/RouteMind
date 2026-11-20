@@ -1,4 +1,3 @@
-
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { Recorrido } from './models/recorrido.model';
@@ -124,32 +123,49 @@ export class RecorridosService {
         ),
       );
       const ahora = Date.now();
-      data.paradas = paradas.map((parada) => {
-        const pedido =
-          parada.pedidoId == null
-            ? undefined
-            : pedidosPorId.get(parada.pedidoId);
-        const duracionSegundos = Math.max(
-          0,
-          Math.round(
-            ((parada.salidaEn?.getTime() ?? ahora) -
-              parada.llegadaEn.getTime()) /
-              1000,
-          ),
-        );
+      const paradasEntrega = paradas.filter(
+        (parada) => parada.pedidoId != null,
+      );
+      data.paradasEntrega = paradasEntrega.map((parada) => {
+        const pedido = pedidosPorId.get(parada.pedidoId!);
         return {
+          id: parada.id,
+          paradaRecorridoId: parada.id,
           pedidoId: parada.pedidoId,
           destinatario: pedido?.destinatario ?? 'Parada',
           latitud: parada.latitud ?? pedido?.latitud ?? null,
           longitud: parada.longitud ?? pedido?.longitud ?? null,
           llegadaEn: parada.llegadaEn,
           salidaEn: parada.salidaEn,
-          duracionSegundos,
-          enParada: parada.salidaEn == null,
         };
-      }).filter(
-        (parada) => parada.duracionSegundos >= 5 * 60,
-      );
+      });
+      data.paradas = paradas
+        .filter(
+          (parada): parada is ParadaRecorrido & { llegadaEn: Date } =>
+            parada.pedidoId == null && parada.llegadaEn != null,
+        )
+        .map((parada) => {
+          const duracionSegundos = Math.max(
+            0,
+            Math.round(
+              ((parada.salidaEn?.getTime() ?? ahora) -
+                parada.llegadaEn.getTime()) /
+                1000,
+            ),
+          );
+          return {
+            id: parada.id,
+            pedidoId: parada.pedidoId,
+            destinatario: 'Parada',
+            latitud: parada.latitud,
+            longitud: parada.longitud,
+            llegadaEn: parada.llegadaEn,
+            salidaEn: parada.salidaEn,
+            duracionSegundos,
+            enParada: parada.salidaEn == null,
+          };
+        })
+        .filter((parada) => parada.duracionSegundos >= 5 * 60);
     }
     return data;
   }
