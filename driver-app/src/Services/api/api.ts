@@ -12,15 +12,18 @@ interface ApiOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   token?: string | null;
+  timeoutMs?: number;
 }
 
 export async function apiRequest<T>(
   endpoint: string,
   options: ApiOptions = {},
 ): Promise<T> {
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-  };
+  const formDataBody =
+    options.body instanceof FormData ? options.body : null;
+  const headers: HeadersInit = formDataBody
+    ? {}
+    : { 'Content-Type': 'application/json' };
 
   if (options.token) {
     headers['Authorization'] = `Bearer ${options.token}`;
@@ -29,7 +32,7 @@ export async function apiRequest<T>(
   const controller = new AbortController();
   const timeoutId = window.setTimeout(
     () => controller.abort(),
-    REQUEST_TIMEOUT_MS,
+    options.timeoutMs ?? REQUEST_TIMEOUT_MS,
   );
   let response: Response;
 
@@ -37,9 +40,11 @@ export async function apiRequest<T>(
     response = await fetch(`${API_URL}${endpoint}`, {
       method: options.method ?? 'GET',
       headers,
-      body: options.body
-        ? JSON.stringify(options.body)
-        : undefined,
+      body: formDataBody
+        ? formDataBody
+        : options.body
+          ? JSON.stringify(options.body)
+          : undefined,
       signal: controller.signal,
     });
   } catch {
