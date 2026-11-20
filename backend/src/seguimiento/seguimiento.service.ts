@@ -74,55 +74,59 @@ export class SeguimientoService {
         const paradas = recorrido
           ? await this.listarParadas(recorrido.id)
           : [];
+        const paradasEntrega = recorrido
+          ? await this.listarParadasEntrega(recorrido.id)
+          : [];
 
         return {
-  id: vehicle.id,
-  codigo: vehicle.codigo,
-  estado: vehicle.estado,
+          id: vehicle.id,
+          codigo: vehicle.codigo,
+          estado: vehicle.estado,
 
-  // Última ubicación GPS registrada
+          // Última ubicación GPS registrada
   latitud: vehicle.latitudActual != null
-    ? Number(vehicle.latitudActual)
-    : null,
+              ? Number(vehicle.latitudActual)
+              : null,
 
   longitud: vehicle.longitudActual != null
-    ? Number(vehicle.longitudActual)
-    : null,
+              ? Number(vehicle.longitudActual)
+              : null,
 
-  gpsActualizadoEn: vehicle.gpsUpdatedAt ?? null,
+          gpsActualizadoEn: vehicle.gpsUpdatedAt ?? null,
 
   gpsPrecisionM: vehicle.gpsAccuracyM != null
     ? Number(vehicle.gpsAccuracyM)
     : null,
 
-  recorridoId: recorrido?.id ?? null,
-  recorridoEstado: recorrido?.estado ?? null,
+          recorridoId: recorrido?.id ?? null,
+          recorridoEstado: recorrido?.estado ?? null,
 
-  pedidos: pedidos.map((pedido) => this.serializarPedido(pedido)),
-  paradas,
-};
+          pedidos: pedidos.map((pedido) => this.serializarPedido(pedido)),
+          paradas,
+          paradasEntrega,
+        };
       }),
     );
   }
 
   async iniciarRecorrido(userId: number, location: UbicacionDto) {
-  const result = await this.sequelize.transaction(async (transaction) => {
-    const vehicle = await this.vehiculoAsignado(
-      userId,
-      location.vehiculoId,
-      transaction,
-    );
+    const result = await this.sequelize.transaction(async (transaction) => {
+      const vehicle = await this.vehiculoAsignado(
+        userId,
+        location.vehiculoId,
+        transaction,
+      );
 
-    const registradoEn = new Date();
+      const registradoEn = new Date();
 
-    // Crear recorrido y actualizar pedidos usando la misma transacción.
-    const recorrido = await this.pedidosService.iniciarRecorrido(
-      vehicle.id,
-      undefined,
-      transaction,
-    );
+      // Crear recorrido y actualizar pedidos usando la misma transacción.
+      const recorrido = await this.pedidosService.iniciarRecorrido(
+        vehicle.id,
+        undefined,
+        transaction,
+      );
 
-    // Actualizar ubicación actual del vehículo.
+      // Actualizar ubicación actual del vehículo.
     await this.guardarUbicacion(
       vehicle,
       location,
@@ -130,38 +134,38 @@ export class SeguimientoService {
       registradoEn,
     );
 
-    // Guardar primera coordenada del historial GPS.
-    await this.ubicacionModel.create(
-      {
-        recorridoId: recorrido.recorridoId,
-        latitud: location.latitud,
-        longitud: location.longitud,
-        precisionM: location.accuracy ?? null,
+      // Guardar primera coordenada del historial GPS.
+      await this.ubicacionModel.create(
+        {
+          recorridoId: recorrido.recorridoId,
+          latitud: location.latitud,
+          longitud: location.longitud,
+          precisionM: location.accuracy ?? null,
+          registradoEn,
+        },
+        { transaction },
+      );
+
+      return {
+        ...recorrido,
         registradoEn,
-      },
-      { transaction },
-    );
+      };
+    });
 
-    return {
-      ...recorrido,
-      registradoEn,
-    };
-  });
+    // Los eventos se publican solamente después del COMMIT.
+    this.realtimeGateway.publishRouteUpdated({
+      vehiculoId: result.vehiculoId,
+      recorridoId: result.recorridoId,
+    });
 
-  // Los eventos se publican solamente después del COMMIT.
-  this.realtimeGateway.publishRouteUpdated({
-    vehiculoId: result.vehiculoId,
-    recorridoId: result.recorridoId,
-  });
+    this.realtimeGateway.publishLocationUpdated({
+      vehiculoId: result.vehiculoId,
+      recorridoId: result.recorridoId,
+      registradoEn: result.registradoEn,
+    });
 
-  this.realtimeGateway.publishLocationUpdated({
-    vehiculoId: result.vehiculoId,
-    recorridoId: result.recorridoId,
-    registradoEn: result.registradoEn,
-  });
-
-  return result;
-}
+    return result;
+  }
 
   async registrarUbicacion(userId: number, location: UbicacionDto) {
     const result = await this.sequelize.transaction(async (transaction) => {
@@ -189,16 +193,16 @@ export class SeguimientoService {
       });
 
       // Contar las ubicaciones GPS válidas registradas antes de esta actualización.
-const ubicacionesPrevias = await this.ubicacionModel.count({
-  where: {
-    recorridoId: recorrido.id,
+      const ubicacionesPrevias = await this.ubicacionModel.count({
+        where: {
+          recorridoId: recorrido.id,
     [Op.or]: [
       { precisionM: null },
       { precisionM: { [Op.lte]: 100 } },
     ],
-  },
-  transaction,
-});
+        },
+        transaction,
+      });
 
       await this.ubicacionModel.create(
         {
@@ -218,7 +222,7 @@ const ubicacionesPrevias = await this.ubicacionModel.count({
         registradoEn,
         transaction,
       );
-     // Evitar detectar paradas durante las primeras ubicaciones del recorrido.
+      // Evitar detectar paradas durante las primeras ubicaciones del recorrido.
       // La primera ubicación es únicamente el punto de referencia GPS.
       // La primera actualización posterior tampoco debe iniciar una parada.
       if (ubicacionesPrevias >= 2) {
@@ -270,10 +274,15 @@ const ubicacionesPrevias = await this.ubicacionModel.count({
 
     const result = await this.pedidosService.marcarEntregado(pedidoId);
     const paradasAbiertas = await this.paradaModel.findAll({
-      where: { recorridoId: recorrido.id, salidaEn: null },
+      where: {
+        recorridoId: recorrido.id,
+        pedidoId: null,
+        salidaEn: null,
+      },
     });
     const salidaEn = new Date();
     for (const parada of paradasAbiertas) {
+      if (!parada.llegadaEn) continue;
       const duracionSegundos =
         (salidaEn.getTime() - parada.llegadaEn.getTime()) / 1000;
       if (duracionSegundos < STOP_MINIMUM_SECONDS) {
@@ -375,10 +384,10 @@ const ubicacionesPrevias = await this.ubicacionModel.count({
     registradoEn = new Date(),
   ): Promise<void> {
     await vehicle.update({
-      latitudActual: location.latitud,
-      longitudActual: location.longitud,
-      gpsUpdatedAt: registradoEn,
-      gpsAccuracyM: location.accuracy ?? null,
+        latitudActual: location.latitud,
+        longitudActual: location.longitud,
+        gpsUpdatedAt: registradoEn,
+        gpsAccuracyM: location.accuracy ?? null,
     }, { transaction });
   }
 
@@ -421,9 +430,9 @@ const ubicacionesPrevias = await this.ubicacionModel.count({
         ? Math.round(elapsedSeconds)
         : 0;
     await recorrido.update({
-      distanciaRealKm: Number(recorrido.distanciaRealKm ?? 0) + distance,
-      tiempoMovimientoSegundos:
-        Number(recorrido.tiempoMovimientoSegundos ?? 0) + movementSeconds,
+        distanciaRealKm: Number(recorrido.distanciaRealKm ?? 0) + distance,
+        tiempoMovimientoSegundos:
+          Number(recorrido.tiempoMovimientoSegundos ?? 0) + movementSeconds,
     }, { transaction });
   }
 
@@ -436,14 +445,14 @@ const ubicacionesPrevias = await this.ubicacionModel.count({
   ): Promise<void> {
     if (location.accuracy != null && location.accuracy > 100) return;
     const paradasAbiertas = await this.paradaModel.findAll({
-      where: { recorridoId, salidaEn: null },
+      where: { recorridoId, pedidoId: null, salidaEn: null },
       order: [['llegadaEn', 'DESC']],
       transaction,
       lock: transaction.LOCK.UPDATE,
     });
     const paradaAbierta = paradasAbiertas[0];
 
-    if (paradaAbierta) {
+    if (paradaAbierta?.llegadaEn) {
       const gapSeconds = previousPosition
         ? (registradoEn.getTime() -
             previousPosition.registradoEn.getTime()) /
@@ -502,48 +511,26 @@ const ubicacionesPrevias = await this.ubicacionModel.count({
 
   private async listarParadas(recorridoId: number) {
     const visits = await this.paradaModel.findAll({
-      where: { recorridoId },
+      where: { recorridoId, pedidoId: null },
       order: [['llegadaEn', 'ASC']],
     });
     const now = Date.now();
-    const paradasDetectadas = visits.filter((visit) => {
-      const duracionSegundos =
-        ((visit.salidaEn?.getTime() ?? now) - visit.llegadaEn.getTime()) /
-        1000;
-      return duracionSegundos >= STOP_MINIMUM_SECONDS;
-    });
-    const pedidoIds = [
-      ...new Set(
-        paradasDetectadas
-          .map((visit) => visit.pedidoId)
-          .filter((pedidoId): pedidoId is number => pedidoId != null),
-      ),
-    ];
-    const orders = pedidoIds.length
-      ? await this.pedidoModel.findAll({
-          where: { id: { [Op.in]: pedidoIds } },
-        })
-      : [];
-    const orderById = new Map(orders.map((order) => [order.id, order]));
+    const paradasDetectadas = visits.filter(
+      (visit): visit is typeof visit & { llegadaEn: Date } => {
+        if (!visit.llegadaEn) return false;
+        const duracionSegundos =
+          ((visit.salidaEn?.getTime() ?? now) - visit.llegadaEn.getTime()) /
+          1000;
+        return duracionSegundos >= STOP_MINIMUM_SECONDS;
+      },
+    );
 
     return paradasDetectadas.map((visit) => ({
+      id: visit.id,
       pedidoId: visit.pedidoId,
-      destinatario:
-        (visit.pedidoId == null
-          ? undefined
-          : orderById.get(visit.pedidoId)?.destinatario) ?? 'Parada',
-      latitud:
-        visit.latitud ??
-        (visit.pedidoId == null ||
-        orderById.get(visit.pedidoId)?.latitud == null
-          ? null
-          : Number(orderById.get(visit.pedidoId)?.latitud)),
-      longitud:
-        visit.longitud ??
-        (visit.pedidoId == null ||
-        orderById.get(visit.pedidoId)?.longitud == null
-          ? null
-          : Number(orderById.get(visit.pedidoId)?.longitud)),
+      destinatario: 'Parada',
+      latitud: visit.latitud,
+      longitud: visit.longitud,
       llegadaEn: visit.llegadaEn,
       salidaEn: visit.salidaEn,
       duracionSegundos: Math.max(
@@ -555,6 +542,41 @@ const ubicacionesPrevias = await this.ubicacionModel.count({
       ),
       enParada: visit.salidaEn == null,
     }));
+  }
+
+  private async listarParadasEntrega(recorridoId: number) {
+    const paradas = await this.paradaModel.findAll({
+      where: { recorridoId, pedidoId: { [Op.ne]: null } },
+      order: [['id', 'ASC']],
+    });
+    const pedidoIds = paradas
+      .map((parada) => parada.pedidoId)
+      .filter((pedidoId): pedidoId is number => pedidoId != null);
+    const pedidos = pedidoIds.length
+      ? await this.pedidoModel.findAll({
+          where: { id: { [Op.in]: pedidoIds } },
+        })
+      : [];
+    const pedidoPorId = new Map(pedidos.map((pedido) => [pedido.id, pedido]));
+
+    return paradas.map((parada) => {
+      const pedido =
+        parada.pedidoId == null ? undefined : pedidoPorId.get(parada.pedidoId);
+      return {
+        id: parada.id,
+        paradaRecorridoId: parada.id,
+        pedidoId: parada.pedidoId,
+        destinatario: pedido?.destinatario ?? 'Parada',
+        latitud:
+          parada.latitud ??
+          (pedido?.latitud == null ? null : Number(pedido.latitud)),
+        longitud:
+          parada.longitud ??
+          (pedido?.longitud == null ? null : Number(pedido.longitud)),
+        llegadaEn: parada.llegadaEn,
+        salidaEn: parada.salidaEn,
+      };
+    });
   }
 
   private serializarPedido(pedido: Pedido) {

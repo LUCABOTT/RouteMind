@@ -1,6 +1,7 @@
 import { jest } from '@jest/globals';
 import { NotFoundException } from '@nestjs/common';
-import { Sequelize, Transaction } from 'sequelize-typescript';
+import { Transaction } from 'sequelize';
+import { Sequelize } from 'sequelize-typescript';
 import { User } from '../auth/models/user.model';
 import { Pedido } from '../pedidos/models/pedido.model';
 import { PedidosService } from '../pedidos/pedidos.service';
@@ -13,23 +14,36 @@ import { SeguimientoService } from './seguimiento.service';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 
 describe('SeguimientoService', () => {
+  const asyncMock = () =>
+    jest.fn<(...args: unknown[]) => Promise<unknown>>();
   const transaction = {
     LOCK: { UPDATE: 'UPDATE' },
   } as unknown as Transaction;
   const sequelize = {
-    transaction: jest.fn((callback) => callback(transaction)),
+    transaction: jest.fn(
+      <T>(callback: (transaction: Transaction) => Promise<T>) =>
+        callback(transaction),
+    ),
   } as unknown as Sequelize;
-  const userModel = { findByPk: jest.fn() };
-  const conductorModel = { findByPk: jest.fn() };
-  const vehicleModel = { findOne: jest.fn(), findByPk: jest.fn() };
-  const orderModel = { findAll: jest.fn() };
-  const routeModel = { findOne: jest.fn() };
-  const stopModel = { findAll: jest.fn(), create: jest.fn() };
-  const locationModel = { findOne: jest.fn(), create: jest.fn() };
+  const userModel = { findByPk: asyncMock() };
+  const conductorModel = { findByPk: asyncMock() };
+  const vehicleModel = { findOne: asyncMock(), findByPk: asyncMock() };
+  const orderModel = { findAll: asyncMock(), findOne: asyncMock() };
+  const routeModel = { findOne: asyncMock() };
+  const stopModel = { findAll: asyncMock(), create: asyncMock() };
+  const locationModel = {
+    findOne: asyncMock(),
+    count: asyncMock(),
+    create: asyncMock(),
+  };
   const realtimeGateway = {
     publishLocationUpdated: jest.fn(),
+    publishRouteUpdated: jest.fn(),
   };
-  const ordersService = { iniciarRecorrido: jest.fn(), marcarEntregado: jest.fn() };
+  const ordersService = {
+    iniciarRecorrido: asyncMock(),
+    marcarEntregado: asyncMock(),
+  };
   const service = new SeguimientoService(
     sequelize,
     userModel as unknown as typeof User,
@@ -62,10 +76,16 @@ describe('SeguimientoService', () => {
       update: jest.fn(),
     });
     locationModel.findOne.mockResolvedValue(null);
+    locationModel.count.mockResolvedValue(2);
     locationModel.create.mockResolvedValue({});
     orderModel.findAll.mockResolvedValue([
       { id: 41, latitud: 14.0723, longitud: -87.1921 },
     ]);
+    orderModel.findOne.mockResolvedValue({
+      id: 41,
+      recorridoId: 12,
+      estado: 'EN_CAMINO',
+    });
     stopModel.findAll.mockResolvedValue([]);
     stopModel.create.mockResolvedValue({});
   });
@@ -95,6 +115,11 @@ describe('SeguimientoService', () => {
         salidaEn: null,
       }),
       { transaction },
+    );
+    expect(stopModel.findAll).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { recorridoId: 12, pedidoId: null, salidaEn: null },
+      }),
     );
     expect(locationModel.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -131,6 +156,7 @@ describe('SeguimientoService', () => {
         precisionM: 10,
         registradoEn: expect.any(Date),
       }),
+      { transaction },
     );
   });
 
@@ -247,5 +273,19 @@ describe('SeguimientoService', () => {
       expect.objectContaining({ salidaEn: null }),
       { transaction },
     );
+  });
+
+  it('only closes GPS stops when the driver marks a delivery complete', async () => {
+    const vehicle = { id: 3 };
+    vehicleModel.findOne.mockResolvedValue(vehicle);
+    routeModel.findOne.mockResolvedValue({ id: 12 });
+    ordersService.marcarEntregado.mockResolvedValue({ id: 41 });
+    stopModel.findAll.mockResolvedValue([]);
+
+    await service.entregarPedido(5, 3, 41);
+
+    expect(stopModel.findAll).toHaveBeenCalledWith({
+      where: { recorridoId: 12, pedidoId: null, salidaEn: null },
+    });
   });
 });

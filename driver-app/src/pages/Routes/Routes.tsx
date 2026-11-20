@@ -1,6 +1,4 @@
 
-import { useCallback, useEffect, useState } from 'react';
-
 import {
   IonBadge,
   IonButton,
@@ -17,26 +15,28 @@ import {
   IonTitle,
   IonToolbar,
 } from '@ionic/react';
-
 import {
   calendarOutline,
+  cameraOutline,
   carOutline,
+  checkmarkCircleOutline,
   refreshOutline,
   mapOutline,
   cubeOutline,
   playCircleOutline,
 } from 'ionicons/icons';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
+import DriverNavigation from '../../components/layout/DriverNavigation';
 import { useAuth } from '../../context/useAuth';
-import { routeService } from '../../Services/routes/route.service';
-
+import { evidenceService } from '../../Services/evidences/evidence.service';
+import { geolocationService } from '../../Services/gps/geolocation.service';
+import { useDriverGPS } from '../../hooks/useDriveGPS';
 import type {
   DriverRoute,
   DriverAssignedVehicle,
 } from '../../interfaces/route.interface';
-
-import DriverNavigation from '../../components/layout/DriverNavigation';
-import { useDriverGPS } from '../../hooks/useDriveGPS';
+import { routeService } from '../../Services/routes/route.service';
 
 import './Routes.css';
 
@@ -59,6 +59,20 @@ const Routes = () => {
     useState<number | null>(null);
 
   const [startError, setStartError] = useState<string | null>(null);
+  const [actionNotice, setActionNotice] = useState<{
+    color: 'danger' | 'success';
+    message: string;
+  } | null>(null);
+  const [uploadingEvidenceFor, setUploadingEvidenceFor] =
+    useState<number | null>(null);
+  const [deliveringOrderId, setDeliveringOrderId] =
+    useState<number | null>(null);
+  const evidenceInputRef = useRef<HTMLInputElement>(null);
+  const evidenceTargetRef = useRef<{
+    pedidoId: number;
+    recorridoId: number;
+    paradaRecorridoId: number;
+  } | null>(null);
 
   // Hook GPS: no solicita permisos ni inicia seguimiento automáticamente.
   const gps = useDriverGPS(session?.token);
@@ -189,6 +203,133 @@ const Routes = () => {
     }
   };
 
+  const handleOpenCamera = (
+    vehicle: DriverAssignedVehicle,
+    pedidoId: number,
+  ) => {
+    const parada = vehicle.paradasEntrega.find(
+      (item) => item.pedidoId === pedidoId,
+    );
+
+    if (!vehicle.recorridoId || !parada) {
+      setActionNotice({
+        color: 'danger',
+        message: 'No se encontró la parada de este pedido en el recorrido.',
+      });
+      return;
+    }
+
+    evidenceTargetRef.current = {
+      pedidoId,
+      recorridoId: vehicle.recorridoId,
+      paradaRecorridoId: parada.paradaRecorridoId,
+    };
+    setActionNotice(null);
+    evidenceInputRef.current?.click();
+  };
+
+  const handlePhotoSelected = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = '';
+    const target = evidenceTargetRef.current;
+    evidenceTargetRef.current = null;
+
+    if (!file || !target) return;
+
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setActionNotice({
+        color: 'danger',
+        message: 'La foto debe estar en formato JPG, PNG o WEBP.',
+      });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setActionNotice({
+        color: 'danger',
+        message: 'La foto no puede superar los 5 MB.',
+      });
+      return;
+    }
+
+    if (!session?.token) {
+      setActionNotice({
+        color: 'danger',
+        message: 'No se encontró una sesión válida.',
+      });
+      return;
+    }
+
+    try {
+      setUploadingEvidenceFor(target.pedidoId);
+      setActionNotice(null);
+      const position = await geolocationService.getCurrentPosition();
+      await evidenceService.createEvidence(
+        {
+          ...target,
+          file,
+          latitud: position.latitud,
+          longitud: position.longitud,
+        },
+        session.token,
+      );
+      setActionNotice({
+        color: 'success',
+        message: `Evidencia del pedido #${target.pedidoId} registrada.`,
+      });
+    } catch (err) {
+      setActionNotice({
+        color: 'danger',
+        message:
+          err instanceof Error
+            ? err.message
+            : 'No fue posible registrar la evidencia.',
+      });
+    } finally {
+      setUploadingEvidenceFor(null);
+    }
+  };
+
+  const handleMarkDelivered = async (
+    vehicleId: number,
+    pedidoId: number,
+  ) => {
+    if (!session?.token) {
+      setActionNotice({
+        color: 'danger',
+        message: 'No se encontró una sesión válida.',
+      });
+      return;
+    }
+
+    try {
+      setDeliveringOrderId(pedidoId);
+      setActionNotice(null);
+      await routeService.markDelivered(
+        vehicleId,
+        pedidoId,
+        session.token,
+      );
+      setActionNotice({
+        color: 'success',
+        message: `El pedido #${pedidoId} fue marcado como entregado.`,
+      });
+      await refreshData();
+    } catch (err) {
+      setActionNotice({
+        color: 'danger',
+        message:
+          err instanceof Error
+            ? err.message
+            : 'No fue posible marcar el pedido como entregado.',
+      });
+    } finally {
+      setDeliveringOrderId(null);
+    }
+  };
+
   // --------------------------------------------------
   // FORMATEAR FECHAS
   // --------------------------------------------------
@@ -270,6 +411,14 @@ const Routes = () => {
 
       <IonContent className="routes-content">
         <div className="routes-container">
+          <input
+            ref={evidenceInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            capture="environment"
+            hidden
+            onChange={(event) => void handlePhotoSelected(event)}
+          />
 
           {/* ENCABEZADO */}
 
@@ -307,6 +456,12 @@ const Routes = () => {
                 </IonText>
               </IonCardContent>
             </IonCard>
+          )}
+
+          {actionNotice && (
+            <IonText color={actionNotice.color}>
+              <p role="status">{actionNotice.message}</p>
+            </IonText>
           )}
 
           {/* VEHÍCULOS ASIGNADOS */}
@@ -440,36 +595,107 @@ const Routes = () => {
                             No hay pedidos asignados a este vehículo.
                           </p>
                         ) : (
-                          vehicle.pedidos.map((pedido) => (
-                            <div
-                              className="route-delivery"
-                              key={pedido.id}
-                            >
-                              <div className="route-delivery-main">
-                                <strong>
-                                  Pedido #{pedido.id} — {pedido.destinatario}
-                                </strong>
+                          vehicle.pedidos.map((pedido) => {
+                            const canActOnDelivery =
+                              hasActiveRoute && pedido.estado === 'EN_CAMINO';
+                            const paradaDisponible =
+                              vehicle.paradasEntrega.some(
+                                (item) => item.pedidoId === pedido.id,
+                              );
+                            const isUploading =
+                              uploadingEvidenceFor === pedido.id;
+                            const isDelivering =
+                              deliveringOrderId === pedido.id;
 
-                                <span>{pedido.direccion}</span>
-
-                                <span>
-                                  Estado: {getDeliveryStatus(pedido.estado)}
-                                </span>
-                              </div>
-
-                              <IonBadge
-                                color={
-                                  pedido.estado === 'ENTREGADO'
-                                    ? 'success'
-                                    : pedido.estado === 'CANCELADO'
-                                      ? 'danger'
-                                      : 'warning'
-                                }
+                            return (
+                              <div
+                                className="route-delivery"
+                                key={pedido.id}
                               >
-                                {getDeliveryStatus(pedido.estado)}
-                              </IonBadge>
-                            </div>
-                          ))
+                                <div className="route-delivery-main">
+                                  <strong>
+                                    Pedido #{pedido.id} — {pedido.destinatario}
+                                  </strong>
+
+                                  <span>{pedido.direccion}</span>
+
+                                  <span>
+                                    Estado: {getDeliveryStatus(pedido.estado)}
+                                  </span>
+                                </div>
+
+                                <IonBadge
+                                  color={
+                                    pedido.estado === 'ENTREGADO'
+                                      ? 'success'
+                                      : pedido.estado === 'CANCELADO'
+                                        ? 'danger'
+                                        : 'warning'
+                                  }
+                                >
+                                  {getDeliveryStatus(pedido.estado)}
+                                </IonBadge>
+
+                                {canActOnDelivery && (
+                                  <div className="route-delivery-actions">
+                                    <IonButton
+                                      size="small"
+                                      fill="outline"
+                                      onClick={() =>
+                                        handleOpenCamera(vehicle, pedido.id)
+                                      }
+                                      disabled={
+                                        uploadingEvidenceFor !== null ||
+                                        deliveringOrderId !== null ||
+                                        !paradaDisponible
+                                      }
+                                    >
+                                      {isUploading ? (
+                                        <IonSpinner name="crescent" />
+                                      ) : (
+                                        <IonIcon
+                                          slot="start"
+                                          icon={cameraOutline}
+                                        />
+                                      )}
+                                      Foto
+                                    </IonButton>
+
+                                    <IonButton
+                                      size="small"
+                                      color="success"
+                                      onClick={() =>
+                                        void handleMarkDelivered(
+                                          vehicle.id,
+                                          pedido.id,
+                                        )
+                                      }
+                                      disabled={
+                                        deliveringOrderId !== null ||
+                                        uploadingEvidenceFor !== null
+                                      }
+                                    >
+                                      {isDelivering ? (
+                                        <IonSpinner name="crescent" />
+                                      ) : (
+                                        <IonIcon
+                                          slot="start"
+                                          icon={checkmarkCircleOutline}
+                                        />
+                                      )}
+                                      Entregar
+                                    </IonButton>
+                                  </div>
+                                )}
+
+                                {canActOnDelivery && !paradaDisponible && (
+                                  <span className="route-delivery-warning">
+                                    No se encontró la parada para la evidencia.
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })
                         )}
                       </div>
 
