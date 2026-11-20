@@ -14,6 +14,8 @@ import { VehiculosModule } from './vehiculos/vehiculos.module';
 import { RecorridosModule } from './recorridos/recorridos.module';
 import { SeguimientoModule } from './seguimiento/seguimiento.module';
 import { DriverModule } from './driver/driver.module';
+import { StorageModule } from './storage/storage.module';
+import { EvidenciasModule } from './evidencias/evidencias.module';
 
 @Module({
   imports: [
@@ -35,6 +37,8 @@ import { DriverModule } from './driver/driver.module';
     RecorridosModule,
     SeguimientoModule,
     DriverModule,
+    StorageModule,
+    EvidenciasModule,
   ],
   controllers: [AppController],
   providers: [

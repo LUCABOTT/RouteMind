@@ -49,9 +49,9 @@ export class ParadaRecorrido extends Model {
   @Column({
     type: DataType.DATE,
     field: 'llegada_en',
-    allowNull: false,
+    allowNull: true,
   })
-  declare llegadaEn: Date;
+  declare llegadaEn: Date | null;
 
   @Column({
     type: DataType.DATE,

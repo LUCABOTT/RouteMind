@@ -11,6 +11,7 @@ import { Recorrido } from '../../recorridos/models/recorrido.model';
 import { Conductor } from '../../vehiculos/models/conductor.model';
 import { Vehiculo } from '../../vehiculos/models/vehiculo.model';
 import { Transaction } from 'sequelize';
+import { ParadaRecorrido } from '../../seguimiento/models/parada-recorrido.model';
 
 @Injectable()
 export class PedidosRecorridosService {
@@ -23,6 +24,8 @@ export class PedidosRecorridosService {
     private readonly vehiculoModel: typeof Vehiculo,
     @InjectModel(Recorrido)
     private readonly recorridoModel: typeof Recorrido,
+    @InjectModel(ParadaRecorrido)
+    private readonly paradaModel: typeof ParadaRecorrido,
   ) {}
 
   async marcarEntregado(id: number): Promise<Pedido> {
@@ -121,7 +124,6 @@ export class PedidosRecorridosService {
     });
   }
 
-  
   async iniciarRecorrido(
     vehiculoId: number,
     distanciaEstimadaKm?: number | null,
@@ -230,6 +232,18 @@ export class PedidosRecorridosService {
       );
     }
 
+    const paradasEntrega = await this.paradaModel.bulkCreate(
+      pedidosAsignados.map((pedido) => ({
+        recorridoId: recorrido.id,
+        pedidoId: pedido.id,
+        latitud: pedido.latitud,
+        longitud: pedido.longitud,
+        llegadaEn: null,
+        salidaEn: null,
+      })),
+      { transaction, returning: true },
+    );
+
     await vehiculo.update(
       { estado: 'EN_RUTA' },
       { transaction },
@@ -245,9 +259,9 @@ export class PedidosRecorridosService {
       distanciaEstimadaKm: distanciaEstimadaKm ?? null,
       distanciaRealKm: null,
       pedidos: pedidosAsignados,
+      paradasEntrega,
     };
   }
-
 
   async planificarRuta(vehiculoId: number) {
     const vehiculo = await this.vehiculoModel.findByPk(vehiculoId, {
