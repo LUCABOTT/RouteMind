@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+
 function Sidebar({ user, onLogout, activeSection = 'planner' }) {
   const isAdmin = ['SUPERADMIN', 'ADMIN'].includes(user?.role)
 
@@ -19,7 +21,12 @@ function Sidebar({ user, onLogout, activeSection = 'planner' }) {
         >
           Route Optimizer
         </a>
-        <a href="#history">Routes</a>
+        <Link
+          className={activeSection === 'history' ? 'active' : ''}
+          to="/history"
+        >
+          Routes
+        </Link>
         {['SUPERADMIN', 'ADMIN', 'PLANIFICADOR'].includes(user?.role) && (
           <a
             className={activeSection === 'orders' ? 'active' : ''}
