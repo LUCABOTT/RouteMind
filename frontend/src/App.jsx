@@ -1,7 +1,5 @@
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import HistorySection from './components/HistorySection'
-import RouteDetail from './components/RouteDetail'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import RouteMap from './components/RouteMap'
 import AuthPage from './components/AuthPage'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -13,6 +11,7 @@ import DriverPage from './components/DriverPage'
 import Sidebar from './components/Sidebar'
 import OrdersPage from './components/OrdersPage'
 import DriverAccountsPage from './components/DriverAccountsPage'
+import RoutesHistoryPage from './components/RoutesHistoryPage'
 import 'leaflet/dist/leaflet.css'
 import './App.css'
 
@@ -40,26 +39,6 @@ function PlannerPage() {
   const [clockNow, setClockNow] = useState(0)
   const [aviso, setAviso] = useState('')
   const [iniciandoRecorrido, setIniciandoRecorrido] = useState(false)
-  const [historialRecorridos, setHistorialRecorridos] = useState([])
-  const [cargandoHistorial, setCargandoHistorial] = useState(false)
-  const [errorHistorial, setErrorHistorial] = useState('')
-  const [recorridoSeleccionado, setRecorridoSeleccionado] = useState(null)
-  const [cargandoDetalle, setCargandoDetalle] = useState(false)
-  const [errorDetalle, setErrorDetalle] = useState('')
-  const [rutaHistorica, setRutaHistorica] = useState([])
-const [cargandoRutaHistorica, setCargandoRutaHistorica] = useState(false)
-const [errorRutaHistorica, setErrorRutaHistorica] = useState('')
-  const detalleRecorridoRef = useRef(null)
-
-  useEffect(() => {
-    if (recorridoSeleccionado) {
-      detalleRecorridoRef.current?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
-      })
-    }
-  }, [recorridoSeleccionado])
-
 useEffect(() => {
   if (!vehiculoId) {
     queueMicrotask(() => {
@@ -213,130 +192,6 @@ const pedidosEnCamino = pedidosVehiculo.filter(
     )
   }, [vehiculoId])
 
-  const cargarHistorialRecorridos = useCallback(async () => {
-    setCargandoHistorial(true)
-    setErrorHistorial('')
-
-    try {
-      const response = await apiFetch('/recorridos')
-
-      if (!response.ok) {
-        throw new Error('No se pudo cargar el historial de recorridos.')
-      }
-
-      const data = await response.json()
-      const lista = Array.isArray(data) ? data : data.data
-
-      if (!Array.isArray(lista)) {
-        throw new Error('La API de recorridos devolvió un formato inesperado.')
-      }
-
-      setHistorialRecorridos(lista)
-    } catch (err) {
-      setErrorHistorial(err.message || 'No se pudo cargar el historial.')
-    } finally {
-      setCargandoHistorial(false)
-    }
-  }, [])
-
-  const verDetalleRecorrido = async (recorridoId) => {
-    setCargandoDetalle(true)
-    setErrorDetalle('')
-    setErrorRutaHistorica('')
-    setRutaHistorica([])
-    setRecorridoSeleccionado(null)
-
-    try {
-      const response = await apiFetch(`/recorridos/${recorridoId}`)
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(
-          data.message || 'No se pudo cargar el detalle del recorrido.',
-        )
-      }
-
-      setRecorridoSeleccionado(data)
-      setCargandoDetalle(false)
-
-      const coordenadasGps = (data.ubicacionesGps || [])
-        .filter(
-          (ubicacion) =>
-            ubicacion.latitud != null &&
-            ubicacion.longitud != null &&
-            Number.isFinite(Number(ubicacion.latitud)) &&
-            Number.isFinite(Number(ubicacion.longitud)),
-        )
-        .map((ubicacion) => [
-          Number(ubicacion.latitud),
-          Number(ubicacion.longitud),
-        ])
-
-      if (coordenadasGps.length > 0) {
-        setRutaHistorica(coordenadasGps)
-        return
-      }
-
-      const coordenadas = (data.pedidos || [])
-        .filter(
-          (pedido) =>
-            pedido.latitud != null &&
-            pedido.longitud != null &&
-            Number.isFinite(Number(pedido.latitud)) &&
-            Number.isFinite(Number(pedido.longitud)),
-        )
-        .map((pedido) => [
-          Number(pedido.longitud),
-          Number(pedido.latitud),
-        ])
-
-      if (coordenadas.length < 2) {
-        setErrorRutaHistorica(
-          'Se necesitan al menos dos pedidos con coordenadas para dibujar la ruta.',
-        )
-        return
-      }
-
-      setCargandoRutaHistorica(true)
-
-      try {
-        const coordenadasOSRM = coordenadas
-          .map(([lon, lat]) => `${lon},${lat}`)
-          .join(';')
-
-        const urlOSRM =
-          `https://router.project-osrm.org/route/v1/driving/${coordenadasOSRM}` +
-          '?overview=full&geometries=geojson&steps=false'
-
-        const routeResponse = await fetch(urlOSRM)
-        const routeData = await routeResponse.json()
-
-        if (!routeResponse.ok || routeData.code !== 'Ok' ||
-            !routeData.routes?.length) {
-          throw new Error('OSRM no encontró una ruta para estas ubicaciones.')
-        }
-
-        setRutaHistorica(
-          routeData.routes[0].geometry.coordinates.map(
-            ([lon, lat]) => [lat, lon],
-          ),
-        )
-      } catch (err) {
-        setErrorRutaHistorica(
-          err.message || 'No se pudo calcular la ruta histórica.',
-        )
-      } finally {
-        setCargandoRutaHistorica(false)
-      }
-    } catch (err) {
-      setErrorDetalle(
-        err.message || 'Ocurrió un error al consultar el recorrido.',
-      )
-    } finally {
-      setCargandoDetalle(false)
-    }
-  }
-
   const planificar = useCallback(async () => {
     if (!vehiculoId) {
       setError('Selecciona un vehículo.')
@@ -351,8 +206,6 @@ const pedidosEnCamino = pedidosVehiculo.filter(
     setResumenRuta(null)
 
     try {
-      await cargarHistorialRecorridos()
-
       const response = await apiFetch(
         `/pedidos/vehiculo/${vehiculoId}/planificar`,
       )
@@ -440,7 +293,7 @@ const pedidosEnCamino = pedidosVehiculo.filter(
     } finally {
       setCargandoRuta(false)
     }
-  }, [vehiculoId, cargarPedidosVehiculo, cargarHistorialRecorridos])
+  }, [vehiculoId, cargarPedidosVehiculo])
 
   useEffect(() => {
     let refreshTimer
@@ -931,49 +784,6 @@ const iniciarRecorrido = async () => {
           </div>
         </section>
 
-        <HistorySection
-          historialRecorridos={historialRecorridos}
-          vehiculos={vehiculos}
-          vehiculoId={vehiculoId}
-          cargandoHistorial={cargandoHistorial}
-          errorHistorial={errorHistorial}
-          onVerDetalle={verDetalleRecorrido}
-          cargandoDetalle={cargandoDetalle}
-          cargandoRutaHistorica={cargandoRutaHistorica}
-        />
-
-        {(cargandoDetalle || errorDetalle || recorridoSeleccionado) && (
-          <div
-            ref={detalleRecorridoRef}
-            className="history-detail-anchor"
-          >
-            {cargandoDetalle && (
-              <div className="history-detail-panel">
-                <p className="empty-state">
-                  Cargando detalle del recorrido...
-                </p>
-              </div>
-            )}
-
-            {errorDetalle && (
-              <div className="message error-message">{errorDetalle}</div>
-            )}
-
-            {recorridoSeleccionado && (
-              <RouteDetail
-                recorrido={recorridoSeleccionado}
-                cargandoRuta={cargandoRutaHistorica}
-                errorRuta={errorRutaHistorica}
-                ruta={rutaHistorica}
-                onCerrar={() => {
-                  setRecorridoSeleccionado(null)
-                  setErrorDetalle('')
-                }}
-              />
-            )}
-          </div>
-        )}
-
         <footer className="page-footer">
           RouteMind · Planificación logística · Las distancias y tiempos son estimaciones.
         </footer>
@@ -1037,6 +847,14 @@ export default function App() {
         element={
           <ProtectedRoute roles={['SUPERADMIN', 'ADMIN', 'PLANIFICADOR', 'VIEWER']}>
             <PlannerPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/history"
+        element={
+          <ProtectedRoute roles={['SUPERADMIN', 'ADMIN', 'PLANIFICADOR', 'VIEWER']}>
+            <RoutesHistoryPage />
           </ProtectedRoute>
         }
       />
