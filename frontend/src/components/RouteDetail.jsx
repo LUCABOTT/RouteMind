@@ -227,7 +227,7 @@ function RouteDetail({
                 <Polyline
                   positions={ruta}
                   pathOptions={{
-                    color: '#A1195C',
+                    color: 'var(--routemind-primary)',
                     weight: 5,
                     opacity: 0.85,
                   }}

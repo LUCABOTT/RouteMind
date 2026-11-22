@@ -56,11 +56,6 @@ function HistorySection({
     obtenerFechaLocal(),
   )
 
-  const recorridosVehiculo = historialRecorridos.filter(
-    (recorrido) =>
-      Number(recorrido.vehiculoId) === Number(vehiculoId),
-  )
-
   const conductores = [
     ...new Set(
       vehiculos.map((vehiculo) => vehiculo.conductor).filter(Boolean),
@@ -70,35 +65,45 @@ function HistorySection({
   const periodoValido =
     !fechaDesde || !fechaHasta || fechaDesde <= fechaHasta
 
-  const resumenEstadisticas = useMemo(() => {
-    const recorridos = periodoValido
-      ? historialRecorridos.filter((recorrido) => {
-          const fechaRecorrido = String(
-            recorrido.fechaInicio || '',
-          ).slice(0, 10)
+  const recorridosFiltrados = useMemo(() => {
+    if (!periodoValido) return []
 
-          const coincideVehiculo =
-            !estadisticasVehiculoId ||
-            Number(recorrido.vehiculoId) ===
-              Number(estadisticasVehiculoId)
+    return historialRecorridos.filter((recorrido) => {
+      const fechaRecorrido = String(
+        recorrido.fechaInicio || '',
+      ).slice(0, 10)
+      const conductorRecorrido = String(
+        recorrido.vehiculo?.conductor || '',
+      ).trim().toLocaleLowerCase()
 
-          const coincideConductor =
-            !estadisticasConductor ||
-            recorrido.vehiculo?.conductor === estadisticasConductor
+      const coincideVehiculo =
+        (!vehiculoId ||
+          Number(recorrido.vehiculoId) === Number(vehiculoId)) &&
+        (!estadisticasVehiculoId ||
+          Number(recorrido.vehiculoId) === Number(estadisticasVehiculoId))
+      const coincideConductor =
+        !estadisticasConductor ||
+        conductorRecorrido ===
+          estadisticasConductor.trim().toLocaleLowerCase()
+      const coincideFecha =
+        (!fechaDesde || fechaRecorrido >= fechaDesde) &&
+        (!fechaHasta || fechaRecorrido <= fechaHasta)
 
-          const coincideFecha =
-            (!fechaDesde || fechaRecorrido >= fechaDesde) &&
-            (!fechaHasta || fechaRecorrido <= fechaHasta)
+      return coincideVehiculo && coincideConductor && coincideFecha
+    })
+  }, [
+    estadisticasConductor,
+    estadisticasVehiculoId,
+    fechaDesde,
+    fechaHasta,
+    historialRecorridos,
+    periodoValido,
+    vehiculoId,
+  ])
 
-          return (
-            coincideVehiculo &&
-            coincideConductor &&
-            coincideFecha
-          )
-        })
-      : []
-
-    return recorridos.reduce(
+  const resumenEstadisticas = useMemo(
+    () =>
+      recorridosFiltrados.reduce(
       (resumen, recorrido) => {
         resumen.totalRecorridos += 1
 
@@ -144,15 +149,9 @@ function HistorySection({
         vehiculos: new Map(),
         conductores: new Map(),
       },
-    )
-  }, [
-    estadisticasConductor,
-    estadisticasVehiculoId,
-    fechaDesde,
-    fechaHasta,
-    historialRecorridos,
-    periodoValido,
-  ])
+      ),
+    [recorridosFiltrados],
+  )
 
   const vehiculosOrdenados = [
     ...resumenEstadisticas.vehiculos.values(),
@@ -204,9 +203,9 @@ function HistorySection({
             <Route size={21} />
           </div>
           <div>
-            <strong>{recorridosVehiculo.length}</strong>
+            <strong>{recorridosFiltrados.length}</strong>
             <span>
-              {recorridosVehiculo.length === 1
+              {recorridosFiltrados.length === 1
                 ? 'Recorrido registrado'
                 : 'Recorridos registrados'}
             </span>
@@ -488,16 +487,15 @@ function HistorySection({
         <div className="hs-history-heading">
           <div>
             <span className="hs-section-kicker">REGISTRO DE OPERACIONES</span>
-            <h3>Recorridos del vehículo</h3>
+            <h3>Todos los recorridos</h3>
             <p>
-              Consulta las fechas, las distancias y los detalles de cada
-              recorrido.
+              Consulta las fechas, las distancias y los detalles de cada recorrido.
             </p>
           </div>
 
           <span className="hs-history-count">
-            {recorridosVehiculo.length}{' '}
-            {recorridosVehiculo.length === 1 ? 'registro' : 'registros'}
+            {recorridosFiltrados.length}{' '}
+            {recorridosFiltrados.length === 1 ? 'registro' : 'registros'}
           </span>
         </div>
 
@@ -509,11 +507,11 @@ function HistorySection({
           <div className="hs-loading">
             <span className="hs-loading-spinner" />
             <strong>Cargando historial...</strong>
-            <p>Estamos preparando los recorridos del vehículo.</p>
+            <p>Estamos preparando los recorridos registrados.</p>
           </div>
-        ) : recorridosVehiculo.length > 0 ? (
+        ) : recorridosFiltrados.length > 0 ? (
           <div className="hs-route-list">
-            {recorridosVehiculo.map((recorrido) => {
+            {recorridosFiltrados.map((recorrido) => {
               const distanciaEstimada =
                 obtenerDistanciaEstimadaKm(recorrido)
 
@@ -644,7 +642,7 @@ function HistorySection({
               </div>
               <h4>No hay recorridos registrados</h4>
               <p>
-                Cuando este vehículo tenga recorridos registrados,
+                Cuando haya recorridos registrados,
                 aparecerán aquí para que puedas consultar su historial.
               </p>
             </div>
